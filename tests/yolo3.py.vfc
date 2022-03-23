@@ -1,0 +1,535 @@
+;  IRL FlowCode Version: Version 10.0
+;  c1995-2015: Visual Flow Coder by 2LResearch
+;
+;  File Name : yolo3.py.vfc
+;  File Date : 06:05:54 PM - 26:Apr:2020
+
+event(import argparse);//
+event(import os);//
+event(import numpy as np);//
+set(from keras.layers import Conv2D, Input, BatchNormalization, LeakyReLU, ZeroPadding2D, UpSampling2D);//
+set(from keras.layers.merge import add, concatenate);//
+set(from keras.models import Model);//
+event(import struct);//
+event(import cv2);//
+set();//
+end();//
+
+input(class WeightReader:);//
+branch();//
+path();//
+
+input(def __init__(self, weight_file):);//
+branch(with open(weight_file, 'rb') as w_f:);//
+path();//
+set(major,    = struct.unpack('i', w_f.read(4)));//
+set(minor,    = struct.unpack('i', w_f.read(4)));//
+set(revision, = struct.unpack('i', w_f.read(4)));//
+set();//
+branch(if (major*10 + minor) >= 2 and major < 1000 and minor < 1000:);//
+path();//
+set(w_f.read(8));//
+path(else:);//
+set(w_f.read(4));//
+bend();//
+set();//
+set(transpose = (major > 1000) or (minor > 1000));//
+set();//
+set(binary = w_f.read());//
+bend();//
+set(self.offset = 0);//
+set(self.all_weights = np.frombuffer(binary, dtype='float32'));//
+end();//
+set();//
+path();//
+
+input(def read_bytes(self, size):);//
+set(self.offset = self.offset + size);//
+end(return self.all_weights[self.offset-size:self.offset]);//
+set();//
+path();//
+set();//
+
+input(def load_weights(self, model):);//
+loop(for i in range(106):);//
+branch(try:);//
+path();//
+set(conv_layer = model.get_layer('conv_' + str(i)));//
+output(print("loading weights of convolution "));//
+set();//
+branch(if i not in [81, 93, 105]:);//
+path();//
+set(norm_layer = model.get_layer('bnorm_' + str(i)));//
+set();//
+set(size = np.prod(norm_layer.get_weights()[0].shape));//
+set();//
+set(beta  = self.read_bytes(size));// bias
+set(gamma = self.read_bytes(size));// scale
+set(mean  = self.read_bytes(size));// mean
+set(var   = self.read_bytes(size));// variance            
+set();//
+set(weights = norm_layer.set_weights([gamma, beta, mean, var]));//
+set();//
+branch(if len(conv_layer.get_weights()) > 1:);//
+path();//
+set(bias   = self.read_bytes(np.prod(conv_layer.get_weights()[1].shape)));//
+set(kernel = self.read_bytes(np.prod(conv_layer.get_weights()[0].shape)));//
+set();//
+set(kernel = kernel.reshape(list(reversed(conv_layer.get_weights()[0].shape))));//
+set(kernel = kernel.transpose([2,3,1,0]));//
+set(conv_layer.set_weights([kernel, bias]));//
+path(else:);//
+set(kernel = self.read_bytes(np.prod(conv_layer.get_weights()[0].shape)));//
+set(kernel = kernel.reshape(list(reversed(conv_layer.get_weights()[0].shape))));//
+set(kernel = kernel.transpose([2,3,1,0]));//
+set(conv_layer.set_weights([kernel]));//
+bend();//
+bend();//
+path(except ValueError:);//
+output(print("no convolution "));//
+bend();//
+lend();//
+set();//
+path();//
+
+input(def reset(self):);//
+set(self.offset = 0);//
+end();//
+set();//
+bend();//
+end();//
+
+input(class BoundBox:);//
+branch();//
+path();//
+
+input(def __init__(self, xmin, ymin, xmax, ymax, objness = None, classes = None):);//
+set(self.xmin = xmin);//
+set(self.ymin = ymin);//
+set(self.xmax = xmax);//
+set(self.ymax = ymax);//
+set();//
+set(self.objness = objness);//
+set(self.classes = classes);//
+set();//
+set(self.label = -1);//
+set(self.score = -1);//
+end();//
+path();//
+
+input(def get_label(self):);//
+branch(if self.label == -1:);//
+path();//
+set(self.label = np.argmax(self.classes));//
+set();//
+bend();//
+end(return self.label);//
+path();//
+set();//
+
+input(def get_score(self):);//
+branch(if self.score == -1:);//
+path();//
+set(self.score = self.classes[self.get_label()]);//
+bend();//
+end(return self.score);//
+bend();//
+end();//
+set();//
+
+input(def _conv_block(inp, convs, skip=True):);//
+set(x = inp);//
+set(count = 0);//
+set();//
+loop(for conv in convs:);//
+branch(if count == (len(convs) - 2) and skip:);//
+path();//
+set(skip_connection = x);//
+set(count += 1);//
+bend();//
+set();//
+process(if conv['stride'] > 1: x = ZeroPadding2D(((1,0),(1,0)))(x));// peculiar padding as darknet prefer left and top
+set(x = Conv2D(conv['filter'],);//
+set(conv['kernel'],);//
+set(strides=conv['stride'],);//
+set(padding='valid' if conv['stride'] > 1 else 'same',);// peculiar padding as darknet prefer left and top
+set(name='conv_' + str(conv['layer_idx']),);//
+set(use_bias=False if conv['bnorm'] else True)(x));//
+process(if conv['bnorm']: x = BatchNormalization(epsilon=0.001, name='bnorm_' + str(conv['layer_idx']))(x));//
+process(if conv['leaky']: x = LeakyReLU(alpha=0.1, name='leaky_' + str(conv['layer_idx']))(x));//
+set();//
+lend();//
+set();//
+end(return add([skip_connection, x]) if skip else x);//
+set();//
+
+input(def _interval_overlap(interval_a, interval_b):);//
+set(x1, x2 = interval_a);//
+set(x3, x4 = interval_b);//
+set();//
+branch(if x3 < x1:);//
+path();//
+branch(if x4 < x1:);//
+path();//
+end(return 0);//
+path(else:);//
+end(return min(x2,x4) - x1);//
+bend();//
+path(else:);//
+branch(if x2 < x3:);//
+path();//
+end(return 0);//
+path(else:);//
+end(return min(x2,x4) - x3);//
+bend();//
+bend();//
+end();//
+
+input(def _sigmoid(x):);//
+end(return 1. / (1. + np.exp(-x)));//
+set();//
+
+input(def bbox_iou(box1, box2):);//
+set(intersect_w = _interval_overlap([box1.xmin, box1.xmax], [box2.xmin, box2.xmax]));//
+set(intersect_h = _interval_overlap([box1.ymin, box1.ymax], [box2.ymin, box2.ymax]));//
+set();//
+set(intersect = intersect_w * intersect_h);//
+set();//
+set(w1, h1 = box1.xmax-box1.xmin, box1.ymax-box1.ymin);//
+set(w2, h2 = box2.xmax-box2.xmin, box2.ymax-box2.ymin);//
+set();//
+set(union = w1*h1 + w2*h2 - intersect);//
+set();//
+end(return float(intersect) / union);//
+set();//
+
+input(def make_yolov3_model():);//
+set(input_image = Input(shape=(None, None, 3)));//
+set();//
+set();// Layer  0 => 4
+set(x = _conv_block(input_image, [{'filter': 32, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 0},);//
+set({'filter': 64, 'kernel': 3, 'stride': 2, 'bnorm': True, 'leaky': True, 'layer_idx': 1},);//
+set({'filter': 32, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 2},);//
+set({'filter': 64, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 3}]));//
+set();//
+set();// Layer  5 => 8
+set(x = _conv_block(x, [{'filter': 128, 'kernel': 3, 'stride': 2, 'bnorm': True, 'leaky': True, 'layer_idx': 5},);//
+set({'filter':  64, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 6},);//
+set({'filter': 128, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 7}]));//
+set();//
+set();// Layer  9 => 11
+set(x = _conv_block(x, [{'filter':  64, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 9},);//
+set({'filter': 128, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 10}]));//
+set();//
+set();// Layer 12 => 15
+set(x = _conv_block(x, [{'filter': 256, 'kernel': 3, 'stride': 2, 'bnorm': True, 'leaky': True, 'layer_idx': 12},);//
+set({'filter': 128, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 13},);//
+set({'filter': 256, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 14}]));//
+set();//
+set();// Layer 16 => 36
+loop(for i in range(7):);//
+set(x = _conv_block(x, [{'filter': 128, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 16+i*3},);//
+set({'filter': 256, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 17+i*3}]));//
+set();//
+lend();//
+set();//
+set(skip_36 = x);//
+set();//
+set();// Layer 37 => 40
+set(x = _conv_block(x, [{'filter': 512, 'kernel': 3, 'stride': 2, 'bnorm': True, 'leaky': True, 'layer_idx': 37},);//
+set({'filter': 256, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 38},);//
+set({'filter': 512, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 39}]));//
+set();//
+set();// Layer 41 => 61
+loop(for i in range(7):);//
+set(x = _conv_block(x, [{'filter': 256, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 41+i*3},);//
+set({'filter': 512, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 42+i*3}]));//
+lend();//
+set();//
+set(skip_61 = x);//
+set();//
+set();// Layer 62 => 65
+set(x = _conv_block(x, [{'filter': 1024, 'kernel': 3, 'stride': 2, 'bnorm': True, 'leaky': True, 'layer_idx': 62},);//
+set({'filter':  512, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 63},);//
+set({'filter': 1024, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 64}]));//
+set();//
+set();// Layer 66 => 74
+loop(for i in range(3):);//
+set(x = _conv_block(x, [{'filter':  512, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 66+i*3},);//
+set({'filter': 1024, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 67+i*3}]));//
+lend();//
+set();//
+set();// Layer 75 => 79
+set(x = _conv_block(x, [{'filter':  512, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 75},);//
+set({'filter': 1024, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 76},);//
+set({'filter':  512, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 77},);//
+set({'filter': 1024, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 78},);//
+set({'filter':  512, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 79}], skip=False));//
+set();//
+set();// Layer 80 => 82
+set(yolo_82 = _conv_block(x, [{'filter': 1024, 'kernel': 3, 'stride': 1, 'bnorm': True,  'leaky': True,  'layer_idx': 80},);//
+set({'filter':  255, 'kernel': 1, 'stride': 1, 'bnorm': False, 'leaky': False, 'layer_idx': 81}], skip=False));//
+set();//
+set();// Layer 83 => 86
+set(x = _conv_block(x, [{'filter': 256, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 84}], skip=False));//
+set(x = UpSampling2D(2)(x));//
+set(x = concatenate([x, skip_61]));//
+set();//
+set();// Layer 87 => 91
+set(x = _conv_block(x, [{'filter': 256, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 87},);//
+set({'filter': 512, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 88},);//
+set({'filter': 256, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 89},);//
+set({'filter': 512, 'kernel': 3, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 90},);//
+set({'filter': 256, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True, 'layer_idx': 91}], skip=False));//
+set();//
+set();// Layer 92 => 94
+set(yolo_94 = _conv_block(x, [{'filter': 512, 'kernel': 3, 'stride': 1, 'bnorm': True,  'leaky': True,  'layer_idx': 92},);//
+set({'filter': 255, 'kernel': 1, 'stride': 1, 'bnorm': False, 'leaky': False, 'layer_idx': 93}], skip=False));//
+set();//
+set();// Layer 95 => 98
+set(x = _conv_block(x, [{'filter': 128, 'kernel': 1, 'stride': 1, 'bnorm': True, 'leaky': True,   'layer_idx': 96}], skip=False));//
+set(x = UpSampling2D(2)(x));//
+set(x = concatenate([x, skip_36]));//
+set();//
+set();// Layer 99 => 106
+set(yolo_106 = _conv_block(x, [{'filter': 128, 'kernel': 1, 'stride': 1, 'bnorm': True,  'leaky': True,  'layer_idx': 99},);//
+set({'filter': 256, 'kernel': 3, 'stride': 1, 'bnorm': True,  'leaky': True,  'layer_idx': 100},);//
+set({'filter': 128, 'kernel': 1, 'stride': 1, 'bnorm': True,  'leaky': True,  'layer_idx': 101},);//
+set({'filter': 256, 'kernel': 3, 'stride': 1, 'bnorm': True,  'leaky': True,  'layer_idx': 102},);//
+set({'filter': 128, 'kernel': 1, 'stride': 1, 'bnorm': True,  'leaky': True,  'layer_idx': 103},);//
+set({'filter': 256, 'kernel': 3, 'stride': 1, 'bnorm': True,  'leaky': True,  'layer_idx': 104},);//
+set({'filter': 255, 'kernel': 1, 'stride': 1, 'bnorm': False, 'leaky': False, 'layer_idx': 105}], skip=False));//
+set();//
+set(model = Model(input_image, [yolo_82, yolo_94, yolo_106]));//
+end(return model);//
+set();//
+
+input(def preprocess_input(image, net_h, net_w):);//
+set(new_h, new_w, _ = image.shape);//
+set();//
+set();// determine the new size of the image
+branch(if (float(net_w)/new_w) < (float(net_h)/new_h):);//
+path();//
+set(new_h = (new_h * net_w)/new_w);//
+set(new_w = net_w);//
+path(else:);//
+set(new_w = (new_w * net_h)/new_h);//
+set(new_h = net_h);//
+bend();//
+set();// resize the image to the new size
+set(resized = cv2.resize(image[:,:,::-1]/255., (int(new_w), int(new_h))));//
+set();//
+set();// embed the image into the standard letter box
+set(new_image = np.ones((net_h, net_w, 3)) * 0.5);//
+set(new_image[int((net_h-new_h)//2):int((net_h+new_h)//2), int((net_w-new_w)//2):int((net_w+new_w)//2), :] = resized);//
+set(new_image = np.expand_dims(new_image, 0));//
+set();//
+end(return new_image);//
+set();//
+
+input(def decode_netout(netout, anchors, obj_thresh, nms_thresh, net_h, net_w):);//
+set(grid_h, grid_w = netout.shape[:2]);//
+set(nb_box = 3);//
+set(netout = netout.reshape((grid_h, grid_w, nb_box, -1)));//
+set(nb_class = netout.shape[-1] - 5);//
+set();//
+set(boxes = []);//
+set();//
+set(netout[..., :2]  = _sigmoid(netout[..., :2]));//
+set(netout[..., 4:]  = _sigmoid(netout[..., 4:]));//
+set(netout[..., 5:]  = netout[..., 4][..., np.newaxis] * netout[..., 5:]);//
+set(netout[..., 5:] *= netout[..., 5:] > obj_thresh);//
+set();//
+loop(for i in range(grid_h*grid_w):);//
+set(row = i / grid_w);//
+set(col = i % grid_w);//
+set();//
+loop(for b in range(nb_box):);//
+set();// 4th element is objectness score
+set(objectness = netout[int(row)][int(col)][b][4]);//
+set();//objectness = netout[..., :4]
+set();//
+process(if(objectness.all() <= obj_thresh): continue);//
+set();//
+set();// first 4 elements are x, y, w, and h
+set(x, y, w, h = netout[int(row)][int(col)][b][:4]);//
+set();//
+set(x = (col + x) / grid_w);// center position, unit: image width
+set(y = (row + y) / grid_h);// center position, unit: image height
+set(w = anchors[2 * b + 0] * np.exp(w) / net_w);// unit: image width
+set(h = anchors[2 * b + 1] * np.exp(h) / net_h);// unit: image height  
+set();//
+set();// last elements are class probabilities
+process(classes = netout[int(row)][col][b][5:]);//
+set();//
+set(box = BoundBox(x-w/2, y-h/2, x+w/2, y+h/2, objectness, classes));//
+set();//box = BoundBox(x-w/2, y-h/2, x+w/2, y+h/2, None, classes)
+set();//
+set(boxes.append(box));//
+lend();//
+set();//
+lend();//
+set();//
+end(return boxes);//
+set();//
+
+input(def correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w):);//
+branch(if (float(net_w)/image_w) < (float(net_h)/image_h):);//
+path();//
+set(new_w = net_w);//
+set(new_h = (image_h*net_w)/image_w);//
+path(else:);//
+set(new_h = net_w);//
+set(new_w = (image_w*net_h)/image_h);//
+bend();//
+set();//
+loop(for i in range(len(boxes)):);//
+set(x_offset, x_scale = (net_w - new_w)/2./net_w, float(new_w)/net_w);//
+set(y_offset, y_scale = (net_h - new_h)/2./net_h, float(new_h)/net_h);//
+set();//
+set(boxes[i].xmin = int((boxes[i].xmin - x_offset) / x_scale * image_w));//
+set(boxes[i].xmax = int((boxes[i].xmax - x_offset) / x_scale * image_w));//
+set(boxes[i].ymin = int((boxes[i].ymin - y_offset) / y_scale * image_h));//
+set(boxes[i].ymax = int((boxes[i].ymax - y_offset) / y_scale * image_h));//
+lend();//
+set();//
+end();//
+
+input(def do_nms(boxes, nms_thresh):);//
+branch(if len(boxes) > 0:);//
+path();//
+set(nb_class = len(boxes[0].classes));//
+path(else:);//
+end(return);//
+bend();//
+set();//
+loop(for c in range(nb_class):);//
+set(sorted_indices = np.argsort([-box.classes[c] for box in boxes]));//
+set();//
+loop(for i in range(len(sorted_indices)):);//
+set(index_i = sorted_indices[i]);//
+set();//
+process(if boxes[index_i].classes[c] == 0: continue);//
+set();//
+loop(for j in range(i+1, len(sorted_indices)):);//
+set(index_j = sorted_indices[j]);//
+set();//
+branch(if bbox_iou(boxes[index_i], boxes[index_j]) >= nms_thresh:);//
+path();//
+set(boxes[index_j].classes[c] = 0);//
+bend();//
+lend();//
+set();//
+lend();//
+set();//
+lend();//
+set();//
+end();//
+
+input(def draw_boxes(image, boxes, labels, obj_thresh):);//
+loop(for box in boxes:);//
+set(label_str = '');//
+set(label = -1);//
+set();//
+loop(for i in range(len(labels)):);//
+branch(if box.classes[i] > obj_thresh:);//
+path();//
+set(label_str += labels[i]);//
+set(label = i);//
+output(print(labels[i] + ': ' + str(box.classes[i]*100) + '%'));//
+bend();//
+set();//
+branch(if label >= 0:);//
+path();//
+set(cv2.rectangle(image, (box.xmin,box.ymin), (box.xmax,box.ymax), (0,255,0), 3));//
+set(cv2.putText(image,);//
+set(label_str + ' ' + str(box.get_score()),);//
+set((box.xmin, box.ymin - 13),);//
+set(cv2.FONT_HERSHEY_SIMPLEX,);//
+set(1e-3 * image.shape[0],);//
+set((0,255,0), 2));//
+bend();//
+lend();//
+set();//
+lend();//
+set();//
+end(return image);//
+set();//
+
+input(def _main_(args):);//
+set(weights_path = args.weights);//
+set(image_path   = args.image);//
+set();//
+set();// set some parameters
+set(net_h, net_w = 416, 416);//
+set(obj_thresh, nms_thresh = 0.5, 0.45);//
+set(anchors = [[116,90,  156,198,  373,326],  [30,61, 62,45,  59,119], [10,13,  16,30,  33,23]]);//
+set(labels = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", \);//
+set("boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", \);//
+set("bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", \);//
+set("backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", \);//
+set("sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", \);//
+set("tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", \);//
+set("apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", \);//
+set("chair", "sofa", "pottedplant", "bed", "diningtable", "toilet", "tvmonitor", "laptop", "mouse", \);//
+set("remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", \);//
+set("book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"]);//
+set();//
+set();// make the yolov3 model to predict 80 classes on COCO
+set(yolov3 = make_yolov3_model());//
+set();//
+set();// load the weights trained on COCO into the model
+set(weight_reader = WeightReader(weights_path));//
+set(weight_reader.load_weights(yolov3));//
+set();//
+set();// preprocess the image
+set(image = cv2.imread(image_path));//
+set(image_h, image_w, _ = image.shape);//
+set(new_image = preprocess_input(image, net_h, net_w));//
+set();//
+set();// run the prediction
+set(yolos = yolov3.predict(new_image));//
+set(boxes = []);//
+set();//
+loop(for i in range(len(yolos)):);//
+set();// decode the output of the network
+set(boxes += decode_netout(yolos[i][0], anchors[i], obj_thresh, nms_thresh, net_h, net_w));//
+lend();//
+set();// correct the sizes of the bounding boxes
+set(correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w));//
+set();//
+set();// suppress non-maximal boxes
+set(do_nms(boxes, nms_thresh));//
+set();//
+set();// draw bounding boxes on the image using labels
+set(draw_boxes(image, boxes, labels, obj_thresh));//
+set();//
+set();// write the image with bounding boxes to file
+set(cv2.imwrite(image_path[:-4] + '_detected' + image_path[-4:], (image).astype('uint8')));//
+set();//
+set();//if __name__ == '__main__':
+end();//
+
+input(def main():);//
+set(np.set_printoptions(threshold=np.nan));//
+set(os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID");//
+set(os.environ["CUDA_VISIBLE_DEVICES"]="0");//
+set();//
+set(argparser = argparse.ArgumentParser(description='test yolov3 network with coco weights'));//
+set();//
+set(argparser.add_argument('-w','--weights',help='path to weights file'));//
+set();//
+set(argparser.add_argument('-i','--image',help='path to image file'));//
+set();//
+set(args = argparser.parse_args());//
+set(_main_(args));//
+end();//
+
+
+
+;INSECTA EMBEDDED SESSION INFORMATION
+; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688
+;    _yolo3.py   #   .
+; notepad++.exe
+;INSECTA EMBEDDED ALTSESSION INFORMATION
+; 66 60 1139 1144 0 99   569   60    python.key  0

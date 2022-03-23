@@ -1,0 +1,233 @@
+;  IRL FlowCode Version: Version 10.0
+;  c1995-2015: Visual Flow Coder by 2LResearch
+;
+;  File Name : PythonParser.pl.vfc
+;  File Date : 01:44:48 PM - 29:Jun:2021
+
+
+input(#use);//////
+set();//
+generic(use File::stat qw(stat););//
+end();//
+
+input(sub LoadFileAsString {);//
+output(local ( $file ) = @_;);//
+output(local ( $keyfile ) ;);//
+set(  open( FILE, $file ););//
+loop(  while(<FILE>) {);//
+set(s/^ *\n//;);//
+set(tr/\t/ /;);//
+set(  $keyfile = "$keyfile$_";);//
+lend(  });//# End of SEARCHFILE
+generic(  close ( FILE ););//
+end($keyfile; });//
+
+input(# main);// 
+process($cmd_line = $ENV{'QUERY_STRING'} ;);//GetParams();
+output(print( "ARG = $cmd_line  \n" ););//
+process(  ($cmd_line) = @ARGV;);//$cmd_line = $ENV{'QUERY_STRING'} ;
+output(print( "ARG = $cmd_line  \n" ););//
+process($outputVFC =  "$cmd_line.vfc" ;);//$cmd_line = $ENV{'QUERY_STRING'} ;
+set($file = $cmd_line ;);//
+output(print( STDOUT  "listening and autoparse for file =  $cmd_line  ...  \n" ););//
+generic($lasttime = 0;);//$lasttime = stat($file)->mtime;
+set($I = 2;);//$I = 0;
+process(Parse(););//
+loop(while( $I < 1 ) {);//
+set($I = $I+1;);//
+generic($nowtime = stat($file)->mtime;);// // seconds since the epoch //
+output();//print(  $nowtime - $lasttime );
+output();//print( "  --- $file\n" );
+branch(if ( $nowtime != $lasttime ));//
+path( {);//
+process(Parse(););//
+generic($lasttime = stat($file)->mtime;);// // seconds since the epoch //
+output(print( STDOUT  "\nlistening and autoparse for file =  $cmd_line  ...  \n" ););//
+path( }else{);//
+bend( });//
+set();//usleep( 300 );
+generic(select(undef, undef, undef, 0.25););//# Sleep for 250 milliseconds
+lend(});//
+output(print "done\n";);//
+end();//
+
+input(sub Parse{);//
+output(open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";);//
+set(  open( FILE, $cmd_line ););//
+set(my @stack;);//
+generic($lastcount = 0;);// ////
+generic($indent = 1;);// ////
+set(  $ParsedFile  = "";);//
+loop(  while(<FILE>) {);//
+set($_ =~ s/    /\t/ ;);//
+set($_ =~ s/\n// ;);//
+set($T =$_;);//
+set($T =~ s/\t+$//g;);//
+set($count = s/\t//g + 1;);//
+output();//print( "$_ ----- $count\n" );
+set($change = $lastcount - $count ;);//
+set($comment = "$_";);//$comment = "### TABS = $count , LAST = $lastcount , DIFF = $change" ;
+loop(while ( $lastcount - $count > 0 ) {);////POP STACK WHEN TABS GO to left //
+process($stack_value = pop( @stack ););//
+branch(if ( $stack_value =~ m/bendend/  ));//
+path( {);//
+set($line ="bend();";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+process($line = "end();";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+path( }else{);//
+branch(if (  $stack_value =~ m/lend/ ));//
+path( {);//
+set($line ="$stack_value();";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+set($line ="set();";);//... fix for to trail a lend() issure with indents exports
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+path( }else{);//
+branch(if ( $stack_value =~ m/pend/ ));//
+path( {);//
+output();//$comment = "##pend BEND" ;
+set($line ="bend();\//$comment";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+path( }else{);//
+branch(if ( $stack_value =~ m/bend/ ));//
+path( {);//
+branch(if ( m/$PEND/  || m/$PATH/  ));//
+path( {);//
+set();//$line ="path($_);\//$comment";
+set();//  $ParsedFile  = "$ParsedFile$line\n";
+path( }else{);//
+output();//$comment = "##popped BEND" ;
+set($line ="$stack_value();\//$comment";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+bend( });//
+path(}else{);//
+branch(if ( $stack_value =~ m/wend/ ));//
+path( {);//
+set($line ="bend();\//$comment";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+path(}else{);//
+branch(if ( $stack_value =~ m/end/ ));//
+path( {);//
+set($line ="$stack_value();\//$comment";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+bend( });//
+bend( });//
+bend( });//
+bend( });//
+bend( });//
+bend( });//
+generic($lastcount = $lastcount - $indent;);//assume the indent to right is the indent size
+lend( });//////
+generic($lastcount = $count;);// ////
+set(s/^\s*//;);//
+set();//$comment = "$_";
+output();//print( "------ $comment \n" );
+set(s/#.*$//;);//
+branch(if ( $comment =~ s/^.*#{1}//  ));//
+path( {);//
+branch(if ( $comment =~ m/^end/ ));//
+path( {);//
+set($line ="end($_);\//$comment";);//
+path( }else{);//
+set($line ="set($_);\//$comment";);//
+bend( });//
+path(} else {);//
+set($comment = "";);//$comment = "+";
+bend( });//
+output();//print( "\t------ $comment \n" );
+set($line ="set($_);\//$comment";);//--- default object class
+set();//
+set($LOOP = "^\s*(for|while)\s*.*:";);//
+set($BRANCH = "^\s*(if|try)\s*.*:";);//
+set($WITH = "^\s*(with)\s*.*:";);//
+set($PATH = "^\s*(elif)\s*.*:";);//
+set($PEND = "^\s*(else|except)\s*.*:";);//
+set($END = "^\s*(break|continue|return).*";);//
+set($OUTPUT = "^\s*(print).*";);//
+set($INPUTOBJ = "^\s*(class).*:";);//
+set($INPUT = "^\s*(def).*:";);//
+set($EVENT = "^\s*(import).*";);//
+set();//
+branch();//
+path(if(   m/$INPUTOBJ/  )  {);//
+set($line ="input($_);\//$comment";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+set($line ="branch();";);//
+process(push( @stack, "bendend" ););//
+path(} if(   m/$INPUT/  )  {);//} if(   m/^\s*import\s.*$/  )  {
+set($line ="input($_);\//$comment";);//
+process(push( @stack, "end" ););//
+path(} if(   m/$EVENT/  )  {);//} if(   m/^\s*import\s.*$/  )  {
+set($line ="event($_);\//$comment";);//
+path(} if(   m/$OUTPUT/  )  {);//} if(   m/^\s*print[( ].*$/  )  {
+set($line ="output($_);\//$comment";);//
+path(} if(   m/$LOOP/  )  {);//} if(   m/^\s*for\b$/  )  {
+set($line ="loop($_);\//$comment";);//
+process(push( @stack, "lend" ););//
+path(} if(   m/$WITH/  )  {);//} if(   m/^\s*if[( ].*$/  )  {
+set($line ="branch($_);\//$comment";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+set($line ="path();";);//
+process(push( @stack, "wend" ););//
+path(} if(   m/$BRANCH/  )  {);//} if(   m/^\s*if[( ].*$/  )  {
+set($line ="branch($_);\//$comment";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+set($line ="path();";);//
+process(push( @stack, "bend" ););//
+path(} if(   m/$PATH/  )  {);//} if(   m/^\s*except.*:\s*$/  )  {
+set($line ="path($_);\//$comment";);//
+process(push( @stack, "path" ););//
+path(} if(   m/$PEND/  )  {);//} if(   m/^\s*except.*:\s*$/  )  {
+process($stack_value = pop( @stack ););//
+branch(if ( $stack_value =~ "bend" ));//
+path( {);//
+set();//$line ="bend();\//____";
+set();//  $ParsedFile  = "$ParsedFile$line\n";
+path( }else{);//
+process(push( @stack, $stack_value ););//
+bend( });//
+set($line ="path($_);\//$comment";);//
+process(push( @stack, "pend" ););//
+path(} if(   m/$END/  )  {);//} if(   m/^\s*break.*$/  )  {
+set($line ="end($_);\//$comment";);//
+bend( });//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+set($line = "";);//
+lend(  });//# End of SEARCHFILE
+generic(  close ( FILE ););//
+output();//print( $ParsedFile );
+process($stack_value = pop( @stack ););//
+loop(while( $stack_value  ) {);//////
+set($line ="$stack_value();";);//
+set(  $ParsedFile  = "$ParsedFile$line\n";);//
+process($stack_value = pop( @stack ););//
+lend( });//////
+output(print( OUTFILE $ParsedFile ););//
+process(printFooter( ););//
+generic(  close ( OUTFILE ););//
+output(print(  "E:\\VFC1.0\\vfc2000 $outputVFC -Reload" ););//
+output(system(  "E:\\VFC1.0\\vfc2000 $outputVFC -Reload" ););//
+output();//print "--- DONE ---\n";
+end( });// 
+
+input(sub printFooter{);//
+set($rootfile = $file;);//
+set($rootfile =~ s/^.*\\//;);//
+generic(print( OUTFILE  ";INSECT" ););// ////
+generic(print( OUTFILE  "A EMBEDDED SESSION INFORMATION\n" ););// ////
+generic(print( OUTFILE  "; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688 \n"););//
+generic(print( OUTFILE  "$rootfile.py   #\"\"\"  #\"\"\"  \n"););//
+generic(print( OUTFILE  "; notepad++.exe \n"););//
+generic(print( OUTFILE  ";INSECT" ););// ////
+generic(print( OUTFILE  "A EMBEDDED ALTSESSION INFORMATION\n"););//
+generic(print( OUTFILE  "; 262 123 765 1694 0 170   379   4294966903    python.key  0"););//
+end( });//
+
+
+
+;INSECTA EMBEDDED SESSION INFORMATION
+; 255 16777215 65280 16777088 16711680 16777215 12632256 0 255 255 65535 65280 3289700
+;    PythonParser.pl   #   .
+; notepad++
+;INSECTA EMBEDDED ALTSESSION INFORMATION
+; 107 740 1240 873 52 239   676   4294963182    perl.key  0

@@ -1,0 +1,74 @@
+;  IRL FlowCode Version: Version 10.0
+;  c1995-2015: Visual Flow Coder by 2LResearch
+;
+;  File Name : ocv.py.vfc
+;  File Date : 01:23:14 PM - 05:Dec:2020
+
+event(import cv2);//
+event(import numpy as np);//
+event(import screeninfo);//
+set(from matplotlib import pyplot as plt);//
+set();// TRY SOME OPENCV FUNCTIONS ___________________________________
+set(imgL = cv2.imread('OBJ_L_7.png', 0));//
+set();//plt.imshow(imgL, cmap = 'gray', interpolation = 'bicubic')
+set();//plt.show( )
+set();//imgR = cv2.imread('OBJ_R_7.png', 0)
+set();//
+set();//cv2.imshow('image R', imgR)
+set();//
+set();//
+set();//
+set();//
+set(screen_id = 0);//
+set(is_color = False);//
+set();//
+set();// get the size of the screen
+set(screen = screeninfo.get_monitors()[screen_id]);//
+set(width, height = screen.width, screen.height);//
+output(print( width ));//
+output(print( height));//
+set();//
+set();// create image
+branch(if is_color:);//
+path();//
+set(image = np.ones((height, width, 3), dtype=np.float32));//
+set(image[:10, :10] = 0);// black at top-left corner
+set(image[height - 10:, :10] = [1, 0, 0]);// blue at bottom-left
+set(image[:10, width - 10:] = [0, 1, 0]);// green at top-right
+set(image[height - 10:, width - 10:] = [0, 0, 1]);// red at bottom-right
+path(else:);//
+set(image = np.ones((height, width), dtype=np.float32));//
+set(image[0, 0] = 0);// top-left corner
+set(image[height - 2, 0] = 0);// bottom-left
+set(image[0, width - 2] = 0);// top-right
+set(image[height - 2, width - 2] = 0);// bottom-right
+bend();//
+set();//
+set(window_name = 'projector');//
+set(cv2.namedWindow(window_name, cv2.WND_PROP_FULLSCREEN));//
+set(cv2.moveWindow(window_name, screen.x - 1, screen.y - 1));//
+set(cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN));//
+set();//
+set(cv2.imshow(window_name, imgL));//
+set();//
+set();//
+set();//
+set();//
+set();//cv2.namedWindow("image L", cv2.WINDOW_NORMAL )
+set();//cv2.namedWindow("image R", cv2.WINDOW_FREERATIO)
+set();//cv2.imshow('image L', imgL)
+set(key = 0);//
+loop(while( key != ' ' ):);//////
+set(key = cv2.waitKey() & OxFF);//
+lend();//
+set(cv2.destroyAllWindows());//
+set();//  Export  Date: 02:53:54 AM - 20:Mar:2019.
+
+
+
+;INSECTA EMBEDDED SESSION INFORMATION
+; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688
+;    E:\Users\luis\Documents\VFCWORK\TestProject\ocv.py   #   .
+; notepad++.exe
+;INSECTA EMBEDDED ALTSESSION INFORMATION
+; 1398 253 640 640 53 100   320   60    python.key  0

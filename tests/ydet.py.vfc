@@ -1,0 +1,294 @@
+set();// load yolov3 model and perform object detection
+set();// based on https://github.com/experiencor/keras-yolo3
+event(import numpy as np);//
+event(import time);//
+set(from numpy import expand_dims);//
+set(from keras.models import load_model);//
+set(from keras.preprocessing.image import load_img);//
+set(from keras.preprocessing.image import img_to_array);//
+set(from matplotlib import pyplot);//
+set(from matplotlib.patches import Rectangle);//
+set();//
+input(class BoundBox:);//
+branch();
+input(def __init__(self, xmin, ymin, xmax, ymax, objness = None, classes = None):);//
+set(self.xmin = xmin);//
+set(self.ymin = ymin);//
+set(self.xmax = xmax);//
+set(self.ymax = ymax);//
+set(self.objness = objness);//
+set(self.classes = classes);//
+set(self.label = -1);//
+set(self.score = -1);//
+end();//
+bend();
+end();
+set();//
+input(def get_label(self):);//
+branch(if self.label == -1:);//
+path();
+set(self.label = np.argmax(self.classes));//
+bend();//
+end();//
+set();//
+end(return self.label);//
+set();//
+input(def get_score(self):);//
+branch(if self.score == -1:);//
+path();
+set(self.score = self.classes[self.get_label()]);//
+bend();//
+end();//
+set();//
+end(return self.score);//
+set();//
+input(def _sigmoid(x):);//
+end(return 1. / (1. + np.exp(-x)));//
+end();//
+set();//
+input(def decode_netout(netout, anchors, obj_thresh, net_h, net_w):);//
+set(grid_h, grid_w = netout.shape[:2]);//
+set(nb_box = 3);//
+set(netout = netout.reshape((grid_h, grid_w, nb_box, -1)));//
+set(nb_class = netout.shape[-1] - 5);//
+set(boxes = []);//
+set(netout[..., :2]  = _sigmoid(netout[..., :2]));//
+set(netout[..., 4:]  = _sigmoid(netout[..., 4:]));//
+set(netout[..., 5:]  = netout[..., 4][..., np.newaxis] * netout[..., 5:]);//
+set(netout[..., 5:] *= netout[..., 5:] > obj_thresh);//
+end();//
+set();//
+loop(for i in range(grid_h*grid_w):);//
+set(row = i / grid_w);//
+set(col = i % grid_w);//
+loop(for b in range(nb_box):);//
+set();// 4th element is objectness score
+set(objectness = netout[int(row)][int(col)][b][4]);//
+branch(if(objectness.all() <= obj_thresh): continue);//
+path();
+set();// first 4 elements are x, y, w, and h
+set(x, y, w, h = netout[int(row)][int(col)][b][:4]);//
+set(x = (col + x) / grid_w );// center position, unit: image width
+set(y = (row + y) / grid_h );// center position, unit: image height
+set(w = anchors[2 * b + 0] * np.exp(w) / net_w );// unit: image width
+set(h = anchors[2 * b + 1] * np.exp(h) / net_h );// unit: image height
+set();// last elements are class probabilities
+input(classes = netout[int(row)][col][b][5:]);//
+branch();
+set(box = BoundBox(x-w/2, y-h/2, x+w/2, y+h/2, objectness, classes));//
+set(boxes.append(box));//
+bend();
+end();
+bend();//return boxes
+end(return boxes);//
+lend();
+set();
+set();//
+input(def correct_yolo_boxes(boxes, image_h, image_w, net_h, net_w):);//
+set(new_w, new_h = net_w, net_h);//
+loop(for i in range(len(boxes)):);//
+set(x_offset, x_scale = (net_w - new_w)/2./net_w, float(new_w)/net_w);//
+set(y_offset, y_scale = (net_h - new_h)/2./net_h, float(new_h)/net_h);//
+set(boxes[i].xmin = int((boxes[i].xmin - x_offset) / x_scale * image_w));//
+set(boxes[i].xmax = int((boxes[i].xmax - x_offset) / x_scale * image_w));//
+set(boxes[i].ymin = int((boxes[i].ymin - y_offset) / y_scale * image_h));//
+set(boxes[i].ymax = int((boxes[i].ymax - y_offset) / y_scale * image_h));//
+lend();
+set();
+end();//
+set();//
+input(def _interval_overlap(interval_a, interval_b):);//
+set(x1, x2 = interval_a);//
+set(x3, x4 = interval_b);//
+branch(if x3 < x1:);//
+path();
+branch(if x4 < x1:);//
+path();
+end(return 0);//
+path(else:);//
+end(return min(x2,x4) - x1);//
+bend();//else:
+end();//else:
+path(else:);//
+branch(if x2 < x3:);//
+path();
+end(return 0);//
+path(else:);//
+end(return min(x2,x4) - x3);//
+bend();//
+bend();//
+lend();
+set();
+set();//
+input(def bbox_iou(box1, box2):);//
+set(intersect_w = _interval_overlap([box1.xmin, box1.xmax], [box2.xmin, box2.xmax]));//
+set(intersect_h = _interval_overlap([box1.ymin, box1.ymax], [box2.ymin, box2.ymax]));//
+set(intersect = intersect_w * intersect_h);//
+set(w1, h1 = box1.xmax-box1.xmin, box1.ymax-box1.ymin);//
+set(w2, h2 = box2.xmax-box2.xmin, box2.ymax-box2.ymin);//
+set(union = w1*h1 + w2*h2 - intersect);//
+end(return float(intersect) / union);//
+end();//
+set();//
+input(def do_nms(boxes, nms_thresh):);//
+branch(if len(boxes) > 0:);//
+path();
+set(nb_class = len(boxes[0].classes));//
+path(else:);//
+end(return);//
+bend();//for c in range(nb_class):
+loop(for c in range(nb_class):);//
+set(sorted_indices = np.argsort([-box.classes[c] for box in boxes]));//
+loop(for i in range(len(sorted_indices)):);//
+set(index_i = sorted_indices[i]);//
+branch(if boxes[index_i].classes[c] == 0: continue);//
+path();
+loop(for j in range(i+1, len(sorted_indices)):);//
+set(index_j = sorted_indices[j]);//
+branch(if bbox_iou(boxes[index_i], boxes[index_j]) >= nms_thresh:);//
+path();
+set(boxes[index_j].classes[c] = 0);//
+bend();//
+lend();
+set();
+bend();//
+lend();
+set();
+lend();
+set();
+set();//
+set();// load and prepare an image
+input(def load_image_pixels(filename, shape):);//
+set();// load the image to get its shape
+set(image = load_img(filename));//
+set(width, height = image.size);//
+set();// load the image with the required size
+set(image = load_img(filename, target_size=shape));//
+set();// convert to numpy array
+set(image = img_to_array(image));//
+set();// scale pixel values to [0, 1]
+set(image = image.astype('float32'));//
+set(image /= 255.0);//
+set();// add a dimension so that we have one sample
+set(image = expand_dims(image, 0));//
+end(return image, width, height);//
+end();//
+set();//
+set();// get all of the results above a threshold
+input(def get_boxes(boxes, labels, thresh):);//
+set(v_boxes, v_labels, v_scores = list(), list(), list());//
+set();// enumerate all boxes
+loop(for box in boxes:);//
+set();// enumerate all possible labels
+loop(for i in range(len(labels)):);//
+set();// check if the threshold for this label is high enough
+branch(if box.classes[i] > thresh:);//
+path();
+set(v_boxes.append(box));//
+set(v_labels.append(labels[i]));//
+set(v_scores.append(box.classes[i]*100));//
+set();// don't break, many labels may trigger for one box
+bend();//return v_boxes, v_labels, v_scores
+lend();
+set();
+lend();
+set();
+end(return v_boxes, v_labels, v_scores);//
+end();//
+set();//
+set();// draw all results
+input(def draw_boxes(filename, v_boxes, v_labels, v_scores):);//
+set();// load the image
+set(data = pyplot.imread(filename));//
+set();// plot the image
+set(pyplot.imshow(data));//
+set();// get the context for drawing boxes
+set(ax = pyplot.gca());//
+set();// plot each box
+loop(for i in range(len(v_boxes)):);//
+set(box = v_boxes[i]);//
+set();// get coordinates
+set(y1, x1, y2, x2 = box.ymin, box.xmin, box.ymax, box.xmax);//
+set();// calculate width and height of the box
+set(width, height = x2 - x1, y2 - y1);//
+set();// create the shape
+set(rect = Rectangle((x1, y1), width, height, fill=False, color='white'));//
+set();// draw the box
+set(ax.add_patch(rect));//
+set();// draw text and score in top left corner
+set(label = "%s (%.3f)" % (v_labels[i], v_scores[i]));//
+set(pyplot.text(x1, y1, label, color='white'));//
+lend();
+set();
+set();// show the plot
+set(pyplot.show());//
+end();//
+set();//
+set();// load yolov3 model
+set(model = load_model('model.h5'));//
+set();// define the expected input shape for the model
+set(input_w, input_h = 416, 416);//
+set();// define our new photo
+set(photo_filename = 'kit.jpg');//
+set();// load and prepare image
+set(image, image_w, image_h = load_image_pixels(photo_filename, (input_w, input_h)));//
+set();//
+set();// make prediction
+set();//
+set(start = time.time());//
+set(yhat = model.predict(image));//
+set(end = time.time());//
+set();//
+set();// summarize the shape of the list of arrays
+set();//
+output(print( start,end,'------',end-start ));//
+output(print('model out:', [a.shape for a in yhat]));//
+set();//
+set();// define the anchors
+set(anchors = [[116,90, 156,198, 373,326], [30,61, 62,45, 59,119], [10,13, 16,30, 33,23]]);//
+set();// define the probability threshold for detected objects
+set();//
+set(class_threshold = 0.6);//
+set();//
+set();//
+set(boxes = list());//
+loop(for i in range(len(yhat)):);//
+set();// decode the output of the network
+set(boxes += decode_netout(yhat[i][0], anchors[i], class_threshold, input_h, input_w));//
+lend();
+set();
+set();// correct the sizes of the bounding boxes for the shape of the image
+set(correct_yolo_boxes(boxes, image_h, image_w, input_h, input_w));//
+set();// suppress non-maximal boxes
+set(do_nms(boxes, 0.5));//
+set();//
+set();//
+set();//
+set();//
+set();// define the labels
+set(labels = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck",);//
+set("boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",);//
+set("bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",);//
+set("backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard",);//
+set("sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",);//
+set("tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana",);//
+set("apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake",);//
+set("chair", "sofa", "pottedplant", "bed", "diningtable", "toilet", "tvmonitor", "laptop", "mouse",);//
+set("remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",);//
+set("book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"]);//
+end();//# get the details of the detected objects
+set();// get the details of the detected objects
+set(v_boxes, v_labels, v_scores = get_boxes(boxes, labels, class_threshold));//
+set();// summarize what we found
+loop(for i in range(len(v_boxes)):);//
+output(print(v_labels[i], v_scores[i]));//
+lend();
+set();
+set();// draw what we found
+set(draw_boxes(photo_filename, v_boxes, v_labels, v_scores));//
+;INSECTA EMBEDDED SESSION INFORMATION
+; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688 
+_ydet.py   #"""  #"""  
+; notepad++.exe 
+;INSECTA EMBEDDED ALTSESSION INFORMATION
+; 262 123 765 1694 0 170   379   4294966903    python.key  0

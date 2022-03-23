@@ -1,0 +1,98 @@
+set();//
+branch(with:);//
+path();
+set(this);//
+bend();//
+set();//
+branch(with :);//
+path();
+set(this);//
+loop(for:);//
+set(loop);//
+branch(if:);//
+path();
+set(then);//
+path(else:);//
+set(else);//
+bend();//##pend BEND
+lend();
+set();
+set(hello);//pend BEND
+branch(if:);//
+path();
+set(then);//
+path(else:);//
+set(else);//
+bend();//##pend BEND
+bend();//##pend BEND
+branch(if:);//pend BEND
+path();
+set(hello);//
+path(else:);//
+set(me);//
+bend();//##pend BEND
+set();//pend BEND
+set();//
+set(hello);//
+set();//
+set();//
+branch(if :);//
+path();
+set(B);//
+branch(if:);//
+path();
+set(A);//
+path(elif:);//
+set(A);//
+path(else:);//
+set(A);//
+bend();//##pend BEND
+path(else:);//pend BEND
+set(B );//
+branch(if:);//
+path();
+set(C);//
+bend();//##popped BEND
+set();//popped BEND
+set();//
+bend();//##pend BEND
+output(print( 'hello' ));//pend BEND
+set();//
+loop(for :);//
+loop(for :);//
+loop(for :);//
+loop(while :);//
+set(.);//
+lend();
+set();
+lend();
+set();
+lend();
+set();
+lend();
+set();
+set(HELLO);//
+set();//
+event(import numpy);//
+set();//
+set();//
+input(class my():);//
+branch();
+set();//
+set();//
+bend();
+end();
+set();//
+set();//
+input(def foo():);//
+set(.);//
+end(return);//
+end();//
+set();//
+set();//
+;INSECTA EMBEDDED SESSION INFORMATION
+; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688 
+TEST.PY   #"""  #"""  
+; notepad++.exe 
+;INSECTA EMBEDDED ALTSESSION INFORMATION
+; 262 123 765 1694 0 170   379   4294966903    python.key  0
