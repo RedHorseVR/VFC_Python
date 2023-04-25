@@ -1,0 +1,77 @@
+set();//!/usr/bin/env python
+set();//
+set(''');//
+set(Stitching sample);//
+set(================);//
+set();//
+set(Show how to use Stitcher API from python in a simple way to stitch panoramas);//
+set(or scans.);//
+set(''');//
+set();//
+set();// Python 2/3 compatibility
+set(from __future__ import print_function);//
+set();//
+event(import numpy as np);//
+event(import cv2 as cv);//
+set();//
+event(import argparse);//
+event(import sys);//
+set();//
+set(modes = (cv.Stitcher_PANORAMA, cv.Stitcher_SCANS));//
+set();//
+set(parser = argparse.ArgumentParser(prog='stitching.py', description='Stitching sample.'));//
+set(parser.add_argument('--mode',);//
+set(type = int, choices = modes, default = cv.Stitcher_PANORAMA,);//
+set(help = 'Determines configuration of stitcher. The default is `PANORAMA` (%d), ');//
+set('mode suitable for creating photo panoramas. Option `SCANS` (%d) is suitable ');//
+set('for stitching materials under affine transformation, such as scans.' % modes));//
+set(parser.add_argument('--output', default = 'result.jpg',);//
+set(help = 'Resulting image. The default is `result.jpg`.'));//
+set(parser.add_argument('img', nargs='+', help = 'input images'));//
+set();//
+set(__doc__ += '\n' + parser.format_help());//
+set();//
+input(def main():);//
+set(args = parser.parse_args());//
+end();//
+set();//
+set();// read input images
+set(imgs = []);//
+loop(for img_name in args.img:);//
+set(img = cv.imread(cv.samples.findFile(img_name)));//
+branch(if img is None:);//
+path();
+output(print("can't read image " + img_name));//
+set(sys.exit(-1));//
+set(imgs.append(img));//
+bend();//
+set();//
+set(stitcher = cv.Stitcher.create(args.mode));//
+set(status, pano = stitcher.stitch(imgs));//
+lend();
+set();
+set();//
+branch(if status != cv.Stitcher_OK:);//
+path();
+output(print("Can't stitch images, error code = %d" % status));//
+set(sys.exit(-1));//
+bend();//
+set();//
+set(cv.imwrite(args.output, pano));//
+output(print("stitching completed successfully. %s saved!" % args.output));//
+set();//
+output(print('Done'));//
+set();//
+set();//
+branch(if __name__ == '__main__':);//
+path();
+output(print(__doc__));//
+set(main());//
+set(cv.destroyAllWindows());//
+bend();
+;INSECTA EMBEDDED SESSION INFORMATION
+; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688 
+stitch.py.py   #"""  #"""  
+; notepad++.exe 
+;INSECTA EMBEDDED ALTSESSION INFORMATION
+; 262 123 765 1694 0 170   379   4294966903    python.key  0

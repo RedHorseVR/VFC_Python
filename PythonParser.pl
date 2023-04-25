@@ -16,12 +16,12 @@ sub LoadFileAsString {
 	$keyfile; }
 # main
 	$cmd_line = $ENV{'QUERY_STRING'} ;
-	print( "ARG = $cmd_line  \n" );
+	
 	($cmd_line) = @ARGV;
-	print( "ARG = $cmd_line  \n" );
+	
 	$outputVFC =  "$cmd_line.vfc" ;
 	$file = $cmd_line ;
-	print( STDOUT  "listening and autoparse for file =  $cmd_line  ...  \n" );
+	print( STDOUT  "parse file =  $cmd_line  ...  \n" );
 	$lasttime = 0;
 	$I = 2;
 	Parse();
@@ -46,6 +46,7 @@ sub LoadFileAsString {
 sub Parse{
 	open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";
 	open( FILE, $cmd_line );
+	print( "...parseing $cmd_line\n" );
 	my @stack;
 	$lastcount = 0;
 	$indent = 1;
@@ -196,11 +197,12 @@ sub Parse{
 		$stack_value = pop( @stack );
 		}
 	
+	print( "  ------------------------------------------\noutput: [$ParsedFile]\n" );
 	print( OUTFILE $ParsedFile );
 	printFooter( );
 	close ( OUTFILE );
-	print(  "E:\\VFC1.0\\vfc2000 $outputVFC -Reload" );
-	system(  "E:\\VFC1.0\\vfc2000 $outputVFC -Reload" );
+	
+	
 	
 	}
 sub printFooter{
@@ -215,5 +217,5 @@ sub printFooter{
 	print( OUTFILE  "A EMBEDDED ALTSESSION INFORMATION\n");
 	print( OUTFILE  "; 262 123 765 1694 0 170   379   4294966903    python.key  0");
 	}
-#  Export  Date: 01:44:48 PM - 29:Jun:2021.
+#  Export  Date: 01:10:50 AM - 11:Sep:2022.
 

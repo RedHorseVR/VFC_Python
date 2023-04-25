@@ -1,8 +1,8 @@
 ;  IRL FlowCode Version: Version 10.0
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
-;  File Name : PythonParser.pl.vfc
-;  File Date : 01:10:50 AM - 11:Sep:2022
+;  File Name : BlackPythonParser.pl.vfc
+;  File Date : 01:30:16 AM - 25:Apr:2023
 
 
 input(#use);//////
@@ -51,79 +51,79 @@ lend(});//
 output(print "done\n";);//
 end();//
 
+input(sub NumTabs{ local ( $inputSTR ) = @_;);//
+set(local($match) = @_;);//
+set();//$param =~ s/\t+$//g;
+generic($match= tr/^\t*/^\t*/;);//  
+end(return  $match ;);//
+end(} );//
+
+input(sub Flow{ local ( $lastCode ) = @_;);//
+set($LOOP = "^\t*(for|while|do)";);//
+set($BRANCH = "^\t*(if|try)";);//
+set($WITH = "^\t*(with)";);//
+set($PATH = "^\t*(else|elif)";);//
+set($PEND = "^\t*(else|except)";);//
+set($END = "^\t*(break|continue|return)";);//
+set($OUTPUT = "^\t*(print)";);//
+set($INPUTOBJ = "^\t*(class)";);//
+set($INPUT = "^\t*(def|class)";);//
+set($EVENT = "^\t*(import)";);//
+event($Flow = (     $lastCode =~m/$INPUT/     ||   $lastCode =~m/$LOOP/     ||   $lastCode =~m/$BRANCH/    ||  $lastCode =~ m/$EVENT/ )  ;);//
+end( return $Flow; });//
+
 input(sub Parse{);//
 output(open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";);//
 set(  open( FILE, $cmd_line ););//
 output(print( "...parseing $cmd_line\n" ););//
 set(my @stack;);//
-generic($lastcount = 0;);// ////
-generic($indent = 1;);// ////
+generic($lastCount = 0;);// ////
 set(  $ParsedFile  = "";);//
 loop(  while(<FILE>) {);//
-set($_ =~ s/    /\t/ ;);//
+set($_ =~ s/    /\t/g ;);//
+set($comment = "$_";);//$comment = "### TABS = $count , LAST = $lastcount , DIFF = $change" ;
+branch(if ( $_ =~ m/^\n/  ));//
+path( { );//
+path(}else{ );//
 set($_ =~ s/\n// ;);//
 set($T =$_;);//
-set($T =~ s/\t+$//g;);//
-set($count = s/\t//g + 1;);//
-output();//print( "$_ ----- $count\n" );
-set($change = $lastcount - $count ;);//
+set($count =  NumTabs( $_ ) ;);//$count = m/\t//g + 1;
+set();//$_ =~ s/\t/ /g;
+set($change = -$lastCount + $count ;);//
 set($comment = "$_";);//$comment = "### TABS = $count , LAST = $lastcount , DIFF = $change" ;
-loop(while ( $lastcount - $count > 0 ) {);////POP STACK WHEN TABS GO to left //
+set();//
+branch(if ( $change > 0 ));//
+path( { );//
+branch(if ( Flow( $lastCode ) ));//if ( $lastCode =~ m/$INPUTOBJ/   )
+path( { );//
+output();//print( "\n>><$count>PUSH  <$change> --------------> push = $lastCode\n" );
+process(push( @stack,"$lastCode" ););//
+bend( } );//
+path( }else{ );//
+branch(if ( $change <  0 ));//
+path( { );//
+set();//local($param) = @_; 
+output();//print( "\n\t\t\t\t>>>>COUNT:<$count>  POP  CHANGE:<$change> unroll the stack \n" );
+set($idx = $change ;);//
+loop(while( $idx < 0 ) {);//
 process($stack_value = pop( @stack ););//
-branch(if ( $stack_value =~ m/bendend/  ));//
-path( {);//
-set($line ="bend();";);//
-set(  $ParsedFile  = "$ParsedFile$line\n";);//
-process($line = "end();";);//
-set(  $ParsedFile  = "$ParsedFile$line\n";);//
-path( }else{);//
-branch(if (  $stack_value =~ m/lend/ ));//
-path( {);//
-set($line ="$stack_value();";);//
-set(  $ParsedFile  = "$ParsedFile$line\n";);//
-set($line ="set();";);//... fix for to trail a lend() issure with indents exports
-set(  $ParsedFile  = "$ParsedFile$line\n";);//
-path( }else{);//
-branch(if ( $stack_value =~ m/pend/ ));//
-path( {);//
-output();//$comment = "##pend BEND" ;
-set($line ="bend();\//$comment";);//
-set(  $ParsedFile  = "$ParsedFile$line\n";);//
-path( }else{);//
-branch(if ( $stack_value =~ m/bend/ ));//
-path( {);//
-branch(if ( m/$PEND/  || m/$PATH/  ));//
-path( {);//
-set();//$line ="path($_);\//$comment";
-set();//  $ParsedFile  = "$ParsedFile$line\n";
-path( }else{);//
-output();//$comment = "##popped BEND" ;
-set($line ="$stack_value();\//$comment";);//
-set(  $ParsedFile  = "$ParsedFile$line\n";);//
-bend( });//
-path(}else{);//
-branch(if ( $stack_value =~ m/wend/ ));//
-path( {);//
-set($line ="bend();\//$comment";);//
-set(  $ParsedFile  = "$ParsedFile$line\n";);//
-path(}else{);//
-branch(if ( $stack_value =~ m/end/ ));//
-path( {);//
-set($line ="$stack_value();\//$comment";);//
-set(  $ParsedFile  = "$ParsedFile$line\n";);//
-bend( });//
-bend( });//
-bend( });//
-bend( });//
-bend( });//
-bend( });//
-generic($lastcount = $lastcount - $indent;);//assume the indent to right is the indent size
-lend( });//////
-generic($lastcount = $count;);// ////
-set(s/^\s*//;);//
+branch(if ( Flow( $stack_value )  ));//
+path( { );//
+generic($comment_flow =  "\n#--------------------------------- $stack_value"  ;);//
+output();//print( "\t( $idx )------------------< END $stack_value\n" );
+path(}else{ );//
+bend( } );//
+set($idx = $idx + 1 ;);//
+lend(});//
+path( }else{ );//
+output();//print( ">><$count> HOLD  <$change>\n" );
+bend( } );//
+bend( } );//
+set();//s/^\s*//;
+set($code = "$_";);//$comment = "### TABS = $count , LAST = $lastcount , DIFF = $change" ;
 set();//$comment = "$_";
 output();//print( "------ $comment \n" );
-set(s/#.*$//;);//
+set(s/#.*$//;);//remove code line
 branch(if ( $comment =~ s/^.*#{1}//  ));//
 path( {);//
 branch(if ( $comment =~ m/^end/ ));//
@@ -135,49 +135,50 @@ bend( });//
 path(} else {);//
 set($comment = "";);//$comment = "+";
 bend( });//
-output();//print( "\t------ $comment \n" );
+output(print( "$_" ););//
+set($comment = "$comment_flow$comment";);//
+generic($comment_flow =  "" ;);//
+branch(if ( $comment ne '' ));//
+path( { );//
+output(print( "\t #  $comment \n" ););//
+path(} else {);//
+output(print( "\n" ););//
+bend( } );//
 set($line ="set($_);\//$comment";);//--- default object class
 set();//
-set($LOOP = "^\s*(for|while)\s*.*:";);//
-set($BRANCH = "^\s*(if|try)\s*.*:";);//
-set($WITH = "^\s*(with)\s*.*:";);//
-set($PATH = "^\s*(elif)\s*.*:";);//
-set($PEND = "^\s*(else|except)\s*.*:";);//
-set($END = "^\s*(break|continue|return).*";);//
-set($OUTPUT = "^\s*(print).*";);//
-set($INPUTOBJ = "^\s*(class).*:";);//
-set($INPUT = "^\s*(def).*:";);//
-set($EVENT = "^\s*(import).*";);//
 set();//
 branch();//
 path(if(   m/$INPUTOBJ/  )  {);//
 set($line ="input($_);\//$comment";);//
 set(  $ParsedFile  = "$ParsedFile$line\n";);//
 set($line ="branch();";);//
-process(push( @stack, "bendend" ););//
+path();//
+process();//push( @stack, "bendend" );
 path(} if(   m/$INPUT/  )  {);//} if(   m/^\s*import\s.*$/  )  {
 set($line ="input($_);\//$comment";);//
-process(push( @stack, "end" ););//
+process();//push( @stack, "end" );
 path(} if(   m/$EVENT/  )  {);//} if(   m/^\s*import\s.*$/  )  {
 set($line ="event($_);\//$comment";);//
 path(} if(   m/$OUTPUT/  )  {);//} if(   m/^\s*print[( ].*$/  )  {
 set($line ="output($_);\//$comment";);//
 path(} if(   m/$LOOP/  )  {);//} if(   m/^\s*for\b$/  )  {
 set($line ="loop($_);\//$comment";);//
-process(push( @stack, "lend" ););//
+process();//push( @stack, "lend" );
 path(} if(   m/$WITH/  )  {);//} if(   m/^\s*if[( ].*$/  )  {
 set($line ="branch($_);\//$comment";);//
+path();//
 set(  $ParsedFile  = "$ParsedFile$line\n";);//
 set($line ="path();";);//
-process(push( @stack, "wend" ););//
+process();//push( @stack, "wend" );
 path(} if(   m/$BRANCH/  )  {);//} if(   m/^\s*if[( ].*$/  )  {
 set($line ="branch($_);\//$comment";);//
+path();//
 set(  $ParsedFile  = "$ParsedFile$line\n";);//
 set($line ="path();";);//
-process(push( @stack, "bend" ););//
+process();//push( @stack, "bend" );
 path(} if(   m/$PATH/  )  {);//} if(   m/^\s*except.*:\s*$/  )  {
 set($line ="path($_);\//$comment";);//
-process(push( @stack, "path" ););//
+process();//push( @stack, "path" );
 path(} if(   m/$PEND/  )  {);//} if(   m/^\s*except.*:\s*$/  )  {
 process($stack_value = pop( @stack ););//
 branch(if ( $stack_value =~ "bend" ));//
@@ -185,15 +186,20 @@ path( {);//
 set();//$line ="bend();\//____";
 set();//  $ParsedFile  = "$ParsedFile$line\n";
 path( }else{);//
-process(push( @stack, $stack_value ););//
+process();//push( @stack, $stack_value );
 bend( });//
 set($line ="path($_);\//$comment";);//
-process(push( @stack, "pend" ););//
+process();//push( @stack, "pend" );
 path(} if(   m/$END/  )  {);//} if(   m/^\s*break.*$/  )  {
 set($line ="end($_);\//$comment";);//
 bend( });//
 set(  $ParsedFile  = "$ParsedFile$line\n";);//
 set($line = "";);//
+set($lastCount = $count ;);//
+set($lastChange = $change ;);//
+set($lastComment = $comment ;);//
+set($lastCode = $code  ;);//
+bend( } );//
 lend(  });//# End of SEARCHFILE
 generic(  close ( FILE ););//
 output();//print( $ParsedFile );
@@ -203,7 +209,7 @@ set($line ="$stack_value();";);//
 set(  $ParsedFile  = "$ParsedFile$line\n";);//
 process($stack_value = pop( @stack ););//
 lend( });//////
-output(print( "  ------------------------------------------\noutput: [$ParsedFile]\n" ););//
+output();//print( "  ------------------------------------------\noutput: [$ParsedFile]\n" );
 output(print( OUTFILE $ParsedFile ););//
 process(printFooter( ););//
 generic(  close ( OUTFILE ););//
@@ -229,7 +235,7 @@ end( });//
 
 ;INSECTA EMBEDDED SESSION INFORMATION
 ; 255 16777215 65280 16777088 16711680 16777215 12632256 0 255 255 65535 65280 3289700
-;    PythonParser.pl   #   .
+;    BlackPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 4294964857 210 1240 1197 58 98   565   4294965927    perl.key  0
+; 1544 198 1957 1705 101 208   4294966686   4294961326    perl.key  0
