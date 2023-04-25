@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : BlackPythonParser.pl.vfc
-;  File Date : 01:30:16 AM - 25:Apr:2023
+;  File Date : 10:11:03 AM - 25:Apr:2023
 
 
 input(#use);//////
@@ -58,6 +58,29 @@ generic($match= tr/^\t*/^\t*/;);//
 end(return  $match ;);//
 end(} );//
 
+input(sub PrintTabs{ local ( $num ) = @_;);//
+set(local( $i ) = 0;);//
+loop(while(  $i  < $num ) {);//
+output(print( "\t" ););//
+lend( $i=$i+1;});//
+end(} );//
+set(my @stack;);//
+
+input(sub PrintStack{);//
+process(PrintTabs(10););//
+output(print "\t----------------\n";);//
+process(PrintTabs(10););//
+output(print "\tSTACK:\n";);//
+loop(foreach $val (@stack){);//
+set($val =~ s/\t*//g;);//
+set($val =~ s/^ +//g;);//
+process(PrintTabs(10););//
+output(print( "\t$val\n" ););//
+lend(});//
+process(PrintTabs(10););//
+output(print "\t----------------^\n";);//
+end(} );//
+
 input(sub Flow{ local ( $lastCode ) = @_;);//
 set($LOOP = "^\t*(for|while|do)";);//
 set($BRANCH = "^\t*(if|try)";);//
@@ -70,17 +93,20 @@ set($INPUTOBJ = "^\t*(class)";);//
 set($INPUT = "^\t*(def|class)";);//
 set($EVENT = "^\t*(import)";);//
 event($Flow = (     $lastCode =~m/$INPUT/     ||   $lastCode =~m/$LOOP/     ||   $lastCode =~m/$BRANCH/    ||  $lastCode =~ m/$EVENT/ )  ;);//
-end( return $Flow; });//
+end( return 1; });// return $Flow; }
 
 input(sub Parse{);//
 output(open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";);//
 set(  open( FILE, $cmd_line ););//
 output(print( "...parseing $cmd_line\n" ););//
-set(my @stack;);//
 generic($lastCount = 0;);// ////
 set(  $ParsedFile  = "";);//
 loop(  while(<FILE>) {);//
 set($_ =~ s/    /\t/g ;);//
+branch(if (    m/^\t*\):/   ));//black spcific fix up 
+path( { );//
+set($_  =~ s/\):/\t\):/;);//
+bend( } );//
 set($comment = "$_";);//$comment = "### TABS = $count , LAST = $lastcount , DIFF = $change" ;
 branch(if ( $_ =~ m/^\n/  ));//
 path( { );//
@@ -97,24 +123,29 @@ path( { );//
 branch(if ( Flow( $lastCode ) ));//if ( $lastCode =~ m/$INPUTOBJ/   )
 path( { );//
 output();//print( "\n>><$count>PUSH  <$change> --------------> push = $lastCode\n" );
+process(PrintStack( ););//
+set($lastCode  =~ s/\t//g;);//
 process(push( @stack,"$lastCode" ););//
+process(PrintTabs( 10 ) ;);//
+output(print( "BLOCK START---------------------------------------> $lastCode\n"););//
+process(PrintStack( ););//
 bend( } );//
 path( }else{ );//
 branch(if ( $change <  0 ));//
 path( { );//
 set();//local($param) = @_; 
-output();//print( "\n\t\t\t\t>>>>COUNT:<$count>  POP  CHANGE:<$change> unroll the stack \n" );
+output(print( "\n\t\t\t\t>>>>COUNT:<$count> LAST:<$lastCount>  CHANGE:<$change> unroll the stack \n" ););//
 set($idx = $change ;);//
+process(PrintStack( ););//
 loop(while( $idx < 0 ) {);//
 process($stack_value = pop( @stack ););//
-branch(if ( Flow( $stack_value )  ));//
-path( { );//
-generic($comment_flow =  "\n#--------------------------------- $stack_value"  ;);//
+generic();//$comment_flow =  "\n#--------------------------------- $stack_value"  ;
+process(PrintTabs( 10) ;);//
+output(print( "BLOCK END <-------($idx) [$stack_value]\n"););//
 output();//print( "\t( $idx )------------------< END $stack_value\n" );
-path(}else{ );//
-bend( } );//
 set($idx = $idx + 1 ;);//
 lend(});//
+process(PrintStack( ););//
 path( }else{ );//
 output();//print( ">><$count> HOLD  <$change>\n" );
 bend( } );//
@@ -180,7 +211,7 @@ path(} if(   m/$PATH/  )  {);//} if(   m/^\s*except.*:\s*$/  )  {
 set($line ="path($_);\//$comment";);//
 process();//push( @stack, "path" );
 path(} if(   m/$PEND/  )  {);//} if(   m/^\s*except.*:\s*$/  )  {
-process($stack_value = pop( @stack ););//
+process();//$stack_value = pop( @stack );
 branch(if ( $stack_value =~ "bend" ));//
 path( {);//
 set();//$line ="bend();\//____";
@@ -238,4 +269,4 @@ end( });//
 ;    BlackPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 1544 198 1957 1705 101 208   4294966686   4294961326    perl.key  0
+; 1544 198 2174 1705 58 168   196   4294961298    perl.key  0
