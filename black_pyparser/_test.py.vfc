@@ -1,0 +1,138 @@
+;  IRL FlowCode Version: Version 10.0
+;  c1995-2015: Visual Flow Coder by 2LResearch
+;
+;  File Name : _test.py.vfc
+;  File Date : 08:53:39 PM - 26:Apr:2023
+
+event(from utils import timer);//-------------event 
+event(from utils.functions import MovingAverage, make_net);//-------------event 
+branch( if not use_jit: );// 
+path();//
+set(ScriptModuleWrapper = torch.jit.ScriptModule if use_jit else nn.Module);// 
+bend();//if not use --- pop 
+set(script_method_wrapper = torch.jit.script_method if use_jit else lambda fn, _rcn=None: fn);// 
+
+input(class Concat(nn.Module):);// 
+branch();// 
+path();// 
+
+input(def __init__(self, nets, extra_params):);// 
+set(super().__init__());// 
+branch();// 
+path();// 
+set(self.nets = nn.ModuleList(nets));// 
+set(self.extra_params = extra_params);// 
+path();// 
+bend();//def __init--- pop 
+end();//def __init 
+
+input(def forward(self, x):);// 
+branch();// 
+path();// 
+set(return torch.cat([net(x) for net in self.nets], dim=1, **self.extra_params));// 
+path();// 
+bend();//def forwar--- pop 
+end();//def forwar 
+path();// 
+bend();//class Conc--- pop 
+end();//class Conc 
+set(#);//       """ CONVERTED MULTILINE COMMENTS TO SINGLES 
+set(#);//       """ 
+set(#);// 
+set(#);//       .5 on the other hand, this layer would consider 
+set(#);//       bounding boxes with area 10x10px, etc. 
+set(#);//       - parent:               If parent is a PredictionModule, this module will use all the layers 
+set(#);//       from parent instead of from this module. 
+set(""");//
+
+input(class PredictionModule(nn.Module):);// 
+branch();// 
+path();// 
+
+input(def __init__();// 
+branch();// 
+path();// 
+set(self,);// 
+set(in_channels,);// 
+set(out_channels=1024,);// 
+set(aspect_ratios=[[1]],);// 
+set(scales=[1],);// 
+set(parent=None,);// 
+set(index=0,);// 
+set():);// 
+set(super().__init__());// 
+branch( if parent is None: );// 
+path();//
+branch( if cfg.use_prediction_module: );// 
+path();//
+set(self.bn = nn.BatchNorm2d(out_channels));// 
+bend();//if cfg.use --- pop 
+
+input(def make_extra(num_layers):);// 
+branch();// 
+path();// 
+branch( if num_layers == 0: );// 
+path();//
+set(return lambda x: x);// 
+path(else:);//-------------path 
+set(return nn.Sequential();// 
+set(*sum();// 
+process(return nn.Sequential();// 
+set([);// 
+set([);// 
+set(nn.Conv2d();// 
+process([);// 
+set(out_channels,);// 
+process(nn.Conv2d();// 
+set(out_channels,);// 
+set(kernel_size=3,);// 
+set(padding=1,);// 
+set(),);// 
+set(nn.ReLU(inplace=True),);// 
+set(]);// 
+set(for _ in range(num_layers));// 
+set(],);// 
+set([],);// 
+set());// 
+set());// 
+set(self.bbox_extra, self.conf_extra, self.mask_extra = [);// 
+bend();//if num_lay --- pop 
+path();// 
+bend();//def make_e--- pop 
+end();//def make_e 
+bend();//if parent  --- pop 
+path();// 
+bend();//def __init--- pop 
+end();//def __init 
+set(make_extra(x) for x in cfg.extra_layers);// 
+process(self.bbox_extra, self.conf_extra, self.mask_extra = [);// 
+set(]);// 
+branch( if cfg.mask_type == mask_type.lincomb and cfg.mask_proto_coeff_gate: );// 
+path();//
+set(self.gate_layer = nn.Conv2d();// 
+set(out_channels,);// 
+process(self.gate_layer = nn.Conv2d();// 
+set(self.num_priors * self.mask_dim,);// 
+process(out_channels,);// 
+set(kernel_size=3,);// 
+set(padding=1,);// 
+set());// 
+set(self.aspect_ratios = aspect_ratios);// 
+bend();//if cfg.mas --- pop 
+path();// 
+bend();//class Pred--- pop 
+end();//class Pred 
+set(self.scales = scales);// 
+set(self.priors = None);// 
+set(self.last_conv_size = None);// 
+set(self.last_img_size = None  );//-------------------------DONE 
+set(prior_cache = defaultdict(lambda: None));//
+
+
+
+;INSECTA EMBEDDED SESSION INFORMATION
+; 255 16777215 65280 16777088 16711680 13158600 13158600 0 255 255 9895835 6946660 3289650
+;    test.py_   #   .
+; notepad.exe
+;INSECTA EMBEDDED ALTSESSION INFORMATION
+; 766 148 1482 1927 0 150   995   4294963763    python.key  0

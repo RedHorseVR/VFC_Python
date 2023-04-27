@@ -1,8 +1,8 @@
 ;  IRL FlowCode Version: Version 10.0
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
-;  File Name : BlackPythonParser.pl.vfc
-;  File Date : 08:50:26 PM - 26:Apr:2023
+;  File Name : TabsPythonParser.pl.vfc
+;  File Date : 12:29:17 AM - 27:Apr:2023
 
 
 input(#use);//////
@@ -51,13 +51,6 @@ lend(});//
 output(print "done\n";);//
 end();//
 
-input(sub NumTabs{ local ( $inputSTR ) = @_;);//
-set(local($match) = @_;);//
-set();//$param =~ s/\t+$//g;
-generic($match= tr/^\t*/^\t*/;);//  
-end(return  $match ;);//
-end(} );//
-
 input(sub PrintTabs{ local ( $num ) = @_;);//
 set(local( $i ) = 0;);//
 loop(while(  $i  < $num ) {);//
@@ -97,7 +90,7 @@ event($Flow = (     $lastCode =~m/$INPUT/     ||   $lastCode =~m/$LOOP/     ||  
 end( return 1; });// return $Flow; }
 
 input(sub getCode { local ( $code ) = @_;);//
-set($code =~ s/    /\t/g ;);//inject tabs
+set($code =~ s/^\t//g ;);//delete leading tabs
 set($code =~ s/#.*$//;);//remove comment line
 end( return $code ; });//
 
@@ -109,6 +102,17 @@ path( }else{ );//
 generic($comment ="" ;);// 
 bend( } );//
 end( return $comment; });// return "f" }
+
+input(sub NumTabs{);//
+set(local($match) = @_;);//
+set();//$match =~ s/\*//g;
+set($num = 0 ;);//
+loop(while( $match =~ m/^\t/  ) {);//
+generic($match =~ s/^\t//;);//
+set($num = $num + 1 ;);//
+lend(});//
+end(return  $num  ;);//
+end(} );//
 
 input(sub getIndents { local ( $Line ) = @_;);//
 set($count =  NumTabs( $Line  ) ;);//$count = m/\t//g + 1;
@@ -137,122 +141,63 @@ generic($lastCount = 0;);// ////
 set(  $ParsedFile  = "";);//
 set($multiLine = 0;);//
 set($LINE = 0;);//
+generic($PREV_LEVEL == 1;);// ////
+generic($PREV_B4_ZERO == 1;);//  
+generic($LEVEL == 1;);// ////
 loop(  while(<FILE>) {);//
+set($LINE = $LINE + 1 ;);//
+branch(if ( $_ =~ m/^\n$/  ));//skip all blank lines
+path( { );//
+path( }else{ );//
+process($multiLine = getMultiline( $multiLine,  $_ ) ;);//////
 set($_ =~ s/    /\t/g ;);//
 set($_ =~ s/\n// ;);//
-process($multiLine = getMultiline( $multiLine,  $_ ) ;);//////
-branch(if ( $multiLine==1  ));//if ( $_ =~ m/^\n/  || $multiLine==1  )
-path( {);//
-branch(if (   $multiLine == 1  ));//
-path( { );//
-output(print( "set(#);\/\/$_\n" ););//print( "#$_\n" );
-bend( } );//
-path(}else{ );//
 process($LEVEL = getIndents( $_  ) ;);//////
 set($COMM = getComment( $_ ) ;);//
 set($CODE = getCode( $_ ) ;);//
-set($CODE =~ s/^\t*// ;);//
-set($LINE = $LINE + 1 ;);//
-output();//print( "$CODE\n" );
-branch(if (    $CODE =~ m/^$/   ));//black spcific fix up for lines that ARE BLANK \n
+branch(if ( $multiLine==1  ));//if ( $_ =~ m/^\n/  || $multiLine==1  )
+path( {);//
+output();//print( "set(#);\/\/$_\n" );
+path(}else{ );//
+branch(if ( 1 ));//if ( 0  )
 path( { );//
-set($LEVEL = $lastCount ;);//
-set($COMM = "--EMPTY---------";);//
-path(} else { );//
-branch(if (  $CODE =~  /^(from|import)/  ));//
+generic($DIFF = $PREV_LEVEL -  $LEVEL ;);//  
+branch(if ( $DIFF   > 1 ));//
 path( { );//
-output(print "event($CODE);\/\/-------------event  $COMM\n";);// 
-set();//$LEVEL = $lastCount ;
-path(} else { );//
-branch(if (  $CODE =~ m/^(else|elif)/  ));//
-path( { );//
-set($LEVEL = $lastCount ;);//
-output(print "path($CODE);\/\/-------------path $COMM\n";);// 
-path(} else { );//
-branch(if ( $CODE =~ m/$INPUT/  ||  $CODE =~ m/$BRANCH/    ));//if ( $CODE eq $lastCode   )
+loop(while( $DIFF > 1 ) {);//
+set($DIFF =  $DIFF -1 ;);//
+output(print( $LINE ); PrintTabs( $LEVEL +$DIFF ); print( $LEVEL+$DIFF,"**\n" ););//
+lend(});//
+path( }else{ );//
+output(print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL\n" ););//
+bend( } );//
+path( }else{ );//
+output(print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL\n" ););//
+branch(if ( $LEVEL == 0 && $PREV_LEVEL > 1 ));//SIGNIFIES WE ARE STILL WINTH A STRUCTURE
 path( { );//
 path( }else{ );//
-output(print "set($CODE);\/\/$COMM\n";);//
+output(print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL\n" ););//
 bend( } );//
-bend( } );//
-bend( } );//
-bend( } );//
-output();//print "LINE: $LINE\n";
-branch(if (  $CODE=~  m/^[\t ]*\):/   || $CODE=~  m/^[\t ]*\)/    || $CODE=~  m/^[\t ]*\]/   || $CODE=~  m/^[\t ]*\[/   ));//black spcific fix up for lines that start with ): or ] or [ )
+branch(if ( $PREV_LEVEL == 0  && $PREV_B4_ZERO > 1 ));//
 path( { );//
-set($LEVEL = $lastCount ;);//
-set($COMM  = "$COMM ------------------------- ADDED TAB";);//
-bend( } );//
-set($change =  $LEVEL  -  $lastCount  ;);//deeper nesting is positive 
-set();//
-branch(if ( $change > 0 ));//
-path( { );//
-output();//print "__________$CODE\n";
-branch(if ( Flow( $lastCode ) ));//if ( $lastCode =~ m/$INPUTOBJ/   )
-path( { );//
-set();//$lastCode  =~ s/\t//g;
-set($st = substr( $lastCode, 0, 10 ););//
-process(push( @stack,$st ););//
-process();//PrintTabs( $lastCount  ) ;
-branch(if ( $st =~ m/$INPUT/ ));//
-path( { );//
-output( );//print "end();\/\/\n";
-output(print "input($lastCode);\/\/$COMM\n";);//print "+$st\n";
-output(print "branch();\/\/\n";);// 
-output(print "path();\/\/\n";);// 
-path( }else{ );//
-branch(if ( $st =~ m/$BRANCH/ ));//
-path( { );//
-output(print "branch( $lastCode );\/\/$COMMt\n";);//print "+$st\n";
-path( }else{ );//
-output(print "process($lastCode);\/\/$COMM\n";);//print "+$st\n";
-bend( } );//
-bend( } );//
-output();//print( "\nPush $st" );PrintStack( );
-bend( } );//
-output();//print "set($CODE);\/\/$COMM\n";
-path( }else{ );//
-branch(if ( $change <  0 ));//
-path( { );//
-set($idx = $change ;);//
-output();//print( "POP $idx " );PrintStack( );
-loop(while( $idx < 0 ) {);//
-process($stack_value = pop( @stack ););//
-set($st = substr( $stack_value, 0, 12 ););//
-set($idx = $idx + 1 ;);//
-process();//PrintTabs( $LEVEL + idx  ) ;
-branch(if ( $st =~ m/$INPUT/ ));//
-path( { );//
-output(print "path();\/\/\n";);// 
-output(print "bend();\/\/$st--- pop \n";);//print "+$st\n";
-output(print "end();\/\/$st\n";);//print "+$st\n";
-path( }else{ );//
-output();//print "set();\/\/-$stack_value ---pop$COMM\n";
-bend( } );//
-branch(if ( $st =~ m/$BRANCH/ ));//
-path( { );//
-output(print "bend();\/\/$st --- pop\n";);//print "+$st\n";
-path( }else{ );//
-output();//print "set();\/\/-$stack_value ---pop$COMM\n";
-bend( } );//
+loop(while( $PREV_B4_ZERO > $LEVEL ) {);//
+set($PREV_B4_ZERO = $PREV_B4_ZERO -1 ;);//
+output(print( $LINE ); PrintTabs( $PREV_B4_ZERO ); print( "*$PREV_B4_ZERO\n" ););//
 lend(});//
 path( }else{ );//
 bend( } );//
 bend( } );//
-output();//print " ($LEVEL delta:$change )\>>   $CODE\t#$LINE $COMM\n";
-set($lastCount = $LEVEL;);//
-set();//$lastChange = $change ;
-set($lastComment = $COMM;);//
-set($lastCode = $CODE;);//
+bend( } );//
+branch(if ( $LEVEL == 0  ));//
+path( { );//
+set($PREV_B4_ZERO = $PREV_LEVEL ;);//
+path( }else{ );//
+bend( } );//
+set($PREV_LEVEL = $LEVEL;);//
 bend( } );//
 lend(  });//# End of SEARCHFILE
 generic(  close ( FILE ););//
-output();//print( $ParsedFile );
-output();//print( "  ------------------------------------------\noutput: [$ParsedFile]\n" );
 generic(  close ( OUTFILE ););//
-output();//print(  "E:\\VFC1.0\\vfc2000 $outputVFC -Reload" );
-output();//system(  "E:\\VFC1.0\\vfc2000 $outputVFC -Reload" );
-output();//print "--- DONE ---\n";
 end( });// 
 
 input(sub printFooter{);//
@@ -271,8 +216,8 @@ end( });//
 
 
 ;INSECTA EMBEDDED SESSION INFORMATION
-; 255 16777215 65280 16777088 16711680 16777215 12632256 0 255 255 65535 65280 3289700
-;    BlackPythonParser.pl   #   .
+; 255 16777215 65280 16777088 16711680 16777215 12632256 0 255 255 65535 65280 1381675
+;    TabsPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 1759 146 1997 1593 173 117   109   4294961157    perl.key  0
+; 208 223 2150 1522 149 117   612   4294962059    perl.key  0

@@ -43,12 +43,6 @@ sub LoadFileAsString {
 	
 	print "done\n";
 	
-sub NumTabs{ local ( $inputSTR ) = @_;
-	local($match) = @_;
-	
-	$match= tr/^\t*/^\t*/;
-	return  $match ;
-}
 sub PrintTabs{ local ( $num ) = @_;
 	local( $i ) = 0;
 	while(  $i  < $num ) {
@@ -87,7 +81,7 @@ sub Flow{ local ( $lastCode ) = @_;
 	$Flow = (     $lastCode =~m/$INPUT/     ||   $lastCode =~m/$LOOP/     ||   $lastCode =~m/$BRANCH/    ||  $lastCode =~ m/$EVENT/ )  ;
 	return 1; }
 sub getCode { local ( $code ) = @_;
-	$code =~ s/    /\t/g ;
+	$code =~ s/^\t//g ;
 	$code =~ s/#.*$//;
 	return $code ; }
 sub getComment { local ( $comment ) = @_;
@@ -98,6 +92,17 @@ sub getComment { local ( $comment ) = @_;
 		$comment ="" ;
 		}
 	return $comment; }
+sub NumTabs{
+	local($match) = @_;
+	
+	$num = 0 ;
+	while( $match =~ m/^\t/  ) {
+		$match =~ s/^\t//;
+		$num = $num + 1 ;
+		}
+	
+	return  $num  ;
+}
 sub getIndents { local ( $Line ) = @_;
 	$count =  NumTabs( $Line  ) ;
 	return $count; }
@@ -123,124 +128,66 @@ sub Parse{
 	$ParsedFile  = "";
 	$multiLine = 0;
 	$LINE = 0;
+	$PREV_LEVEL == 1;
+	$PREV_B4_ZERO == 1;
+	$LEVEL == 1;
 	while(<FILE>) {
-		$_ =~ s/    /\t/g ;
-		$_ =~ s/\n// ;
-		$multiLine = getMultiline( $multiLine,  $_ ) ;
-		if ( $multiLine==1  )
+		$LINE = $LINE + 1 ;
+		if ( $_ =~ m/^\n$/  )
 		{
-			if (   $multiLine == 1  )
-			{
-				print( "set(#);\/\/$_\n" );
-				}
 		}else{
+			$multiLine = getMultiline( $multiLine,  $_ ) ;
+			$_ =~ s/    /\t/g ;
+			$_ =~ s/\n// ;
 			$LEVEL = getIndents( $_  ) ;
 			$COMM = getComment( $_ ) ;
 			$CODE = getCode( $_ ) ;
-			$CODE =~ s/^\t*// ;
-			$LINE = $LINE + 1 ;
-			
-			if (    $CODE =~ m/^$/   )
+			if ( $multiLine==1  )
 			{
-				$LEVEL = $lastCount ;
-				$COMM = "--EMPTY---------";
-			} else {
-				if (  $CODE =~  /^(from|import)/  )
-				{
-					print "event($CODE);\/\/-------------event  $COMM\n";
-					
-				} else {
-					if (  $CODE =~ m/^(else|elif)/  )
-					{
-						$LEVEL = $lastCount ;
-						print "path($CODE);\/\/-------------path $COMM\n";
-					} else {
-						if ( $CODE =~ m/$INPUT/  ||  $CODE =~ m/$BRANCH/    )
-						{
-						}else{
-							print "set($CODE);\/\/$COMM\n";
-							}
-						}
-					}
-				}
-			
-			if (  $CODE=~  m/^[\t ]*\):/   || $CODE=~  m/^[\t ]*\)/    || $CODE=~  m/^[\t ]*\]/   || $CODE=~  m/^[\t ]*\[/   )
-			{
-				$LEVEL = $lastCount ;
-				$COMM  = "$COMM ------------------------- ADDED TAB";
-				}
-			$change =  $LEVEL  -  $lastCount  ;
-			
-			if ( $change > 0 )
-			{
-				
-				if ( Flow( $lastCode ) )
-				{
-					
-					$st = substr( $lastCode, 0, 10 );
-					push( @stack,$st );
-					
-					if ( $st =~ m/$INPUT/ )
-					{
-						
-						print "input($lastCode);\/\/$COMM\n";
-						print "branch();\/\/\n";
-						print "path();\/\/\n";
-					}else{
-						if ( $st =~ m/$BRANCH/ )
-						{
-							print "branch( $lastCode );\/\/$COMMt\n";
-						}else{
-							print "process($lastCode);\/\/$COMM\n";
-							}
-						}
-					
-					}
 				
 			}else{
-				if ( $change <  0 )
+				if ( 1 )
 				{
-					$idx = $change ;
-					
-					while( $idx < 0 ) {
-						$stack_value = pop( @stack );
-						$st = substr( $stack_value, 0, 12 );
-						$idx = $idx + 1 ;
+					$DIFF = $PREV_LEVEL -  $LEVEL ;
+					if ( $DIFF   > 1 )
+					{
+						while( $DIFF > 1 ) {
+							$DIFF =  $DIFF -1 ;
+							print( $LINE ); PrintTabs( $LEVEL +$DIFF ); print( $LEVEL+$DIFF,"**\n" );
+							}
 						
-						if ( $st =~ m/$INPUT/ )
-						{
-							print "path();\/\/\n";
-							print "bend();\/\/$st--- pop \n";
-							print "end();\/\/$st\n";
-						}else{
-							
-							}
-						if ( $st =~ m/$BRANCH/ )
-						{
-							print "bend();\/\/$st --- pop\n";
-						}else{
-							
-							}
+					}else{
+						print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL\n" );
 						}
-					
 				}else{
+					print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL\n" );
+					if ( $LEVEL == 0 && $PREV_LEVEL > 1 )
+					{
+					}else{
+						print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL\n" );
+						}
+					if ( $PREV_LEVEL == 0  && $PREV_B4_ZERO > 1 )
+					{
+						while( $PREV_B4_ZERO > $LEVEL ) {
+							$PREV_B4_ZERO = $PREV_B4_ZERO -1 ;
+							print( $LINE ); PrintTabs( $PREV_B4_ZERO ); print( "*$PREV_B4_ZERO\n" );
+							}
+						
+					}else{
+						}
 					}
 				}
-			
-			$lastCount = $LEVEL;
-			
-			$lastComment = $COMM;
-			$lastCode = $CODE;
+			if ( $LEVEL == 0  )
+			{
+				$PREV_B4_ZERO = $PREV_LEVEL ;
+			}else{
+				}
+			$PREV_LEVEL = $LEVEL;
 			}
 		}
 	
 	close ( FILE );
-	
-	
 	close ( OUTFILE );
-	
-	
-	
 	}
 sub printFooter{
 	$rootfile = $file;
@@ -254,5 +201,5 @@ sub printFooter{
 	print( OUTFILE  "A EMBEDDED ALTSESSION INFORMATION\n");
 	print( OUTFILE  "; 262 123 765 1694 0 170   379   4294966903    python.key  0");
 	}
-#  Export  Date: 08:50:26 PM - 26:Apr:2023.
+#  Export  Date: 12:29:17 AM - 27:Apr:2023.
 
