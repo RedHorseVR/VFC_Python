@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : TabsPythonParser.pl.vfc
-;  File Date : 11:47:54 AM - 27:Apr:2023
+;  File Date : 04:55:23 PM - 27:Apr:2023
 
 
 input(#use);//////
@@ -76,16 +76,6 @@ output(print "^----------------^\n";);//
 end(} );//
 
 input(sub Flow{ local ( $lastCode ) = @_;);//
-set($LOOP = "^\t*(for|while|do)";);//
-set($BRANCH = "^\t*(if|try)";);//
-set($WITH = "^\t*(with)";);//
-set($PEND = "^\t*(else|except)";);//
-set($END = "^\t*(break|continue|return)";);//
-set($OUTPUT = "^\t*(print)";);//
-set($INPUTOBJ = "^\t*(class)";);//
-set($INPUT = "^\t*(def|class)";);//
-set($EVENT = "^(import|from)";);//
-set($PATH = "^\t*(else|elif)";);//
 event($Flow = (     $lastCode =~m/$INPUT/     ||   $lastCode =~m/$LOOP/     ||   $lastCode =~m/$BRANCH/    ||  $lastCode =~ m/$EVENT/ )  ;);//
 end( return 1; });// return $Flow; }
 
@@ -122,17 +112,44 @@ set($count = $count + 1 ;);//
 set($Line =~ s/    /T/ ;);//
 output();//print( "-$Line" );
 lend(});//
-output();//print( "---> $count \n" );
+branch(if ( $Line =~ m/Telse:/  ||   $Line =~ m/T\):/   ));//
+path( {);//
+set($count = $count + 1;);//
+output();//print "<pre>";
+bend( } );//
 end( return $count; });//
-event(sub GetToken{ local( $LEVEL, $PREV_LEVEL, $CODE , $PREV_CODE  ) = @_;);//
+event(sub GetToken{ local( $LEVEL, $PREV_LEVEL, $CODE , $PREV_CODE , $DIFF  ) = @_;);//
+set($BRANCH = "(if|try)";);//
+set($INPUT = "(def|class)";);//
+set();//
+set($LOOP = "^\t*(for|while|do)";);//
+set($WITH = "^\t*(with)";);//
+set($PEND = "^\t*(else|except)";);//
+set($END = "^\t*(break|continue|return)";);//
+set($OUTPUT = "^\t*(print)";);//
+set($EVENT = "^(import|from)";);//
+set($PATH = "^\t*(else|elif)";);//
 generic($DIFF = $LEVEL - $PREV_LEVEL ;);// 
+set(local( $TYPE ) = "...";);//
+set(local( $TOKEN ) = "...";);//
 branch(if ($DIFF > 0  ));//
 path( { );//
-process($TOKEN = "push -->  $PREV_CODE  to  $PREV_LINE LEVEL($PREV_LEVEL) "  ;);//
+process($TOKEN = "push -->  $PREV_CODE LEVEL($PREV_LEVEL) "  ;);//
+branch(if ( $PREV_CODE =~m/$INPUT/ ));//
+path( { );//
+set($TYPE = "end( );\/\/" ;);//
+path(} else { );//
+branch(if ( $PREV_CODE =~ m/$BRANCH/ ));//
+path( { );//
+set($TYPE = "bend( $PREV_LINE  );\/\/" ;);//
+bend( } );//
+bend( } );//
+event(push( @stack, "$TYPE <--- $PREV_CODE"  ););////push( @stack,"$PREV_LINE LEVEL($PREV_LEVEL)  "  );//
 path(} else { );//
 branch(if ($DIFF <  0  ));//
 path( { );//
-process($TOKEN = "pop <--  from   $PREV_LINE LEVEL($PREV_LEVEL) "  ;);//$TOKEN = "pop <--  $PREV_CODE  from   $PREV_LINE LEVEL($PREV_LEVEL) "  ;
+event($POP = pop( @stack ) ;);//////
+process($TOKEN = "pop <--  from   $POP  "  ;);//$TOKEN = "pop <------------------------------------- $POP  from   $PREV_LINE LEVEL($PREV_LEVEL) "  ;
 path(} else { );//
 set($TOKEN = ""  ;);//$TOKEN = "$CODE"  ;
 bend( } );//
@@ -172,10 +189,6 @@ output(print( $LINE,"\n" ););//
 bend( } );//
 path( }else{ );//
 output();//print( $CODE,"\n" );
-branch();//if ( $_ =~ m/^else:$/  ||   $_ =~ m/\):$/   )
-path();// {
-set();//$_ =~ s/^\t/\t\t/ ;
-bend();// } 
 set();//
 process($LEVEL = getIndents( $_  ) ;);//////
 set($COMM = getComment( $_ ) ;);//
@@ -186,16 +199,16 @@ path(}else{ );//
 generic($DIFF = $PREV_LEVEL -  $LEVEL ;);//  
 branch(if ( $DIFF   > 1   ));//if ( $DIFF   > 1   && $LEVEL != 0 )
 path( { );//
-loop(while( $DIFF > 0 ) {);//
+loop(while( $DIFF > -1  ) {);//
 set($DIFF =  $DIFF -1 ;);//
 set($BACK_LEVEL  =  $LEVEL + $DIFF;);//
 set($BACK_DIFF  =  $BACK_LEVEL - $PREV_LEVEL ;);//
-process($TOKEN = GetToken( $BACK_LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE    ););//
+process($TOKEN = GetToken( $BACK_LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE , $DIFF   ););//
 output(print( $LINE,"<$BACK_DIFF>" ); PrintTabs( $BACK_LEVEL   ); print( $BACK_LEVEL  ,"** $TOKEN\n" ););//
 set($PREV_LEVEL = $BACK_LEVEL;);//
 lend(});//
 path( }else{ );//
-process($TOKEN = GetToken( $LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE    ););//
+process($TOKEN = GetToken( $LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE , $DIFF    ););//
 output(print( $LINE ); print("<$DIFF>"); PrintTabs( $LEVEL ); print( " $LEVEL " );  print("$TOKEN \n" ) ;);//
 bend( } );//
 bend( } );//
@@ -228,4 +241,4 @@ end( });//
 ;    TabsPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 387 304 2432 1630 150 157   1117   4294960075    perl.key  0
+; 387 278 2518 1665 173 157   954   4294961023    perl.key  0
