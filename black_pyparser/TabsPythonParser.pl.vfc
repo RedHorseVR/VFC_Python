@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : TabsPythonParser.pl.vfc
-;  File Date : 10:31:08 AM - 27:Apr:2023
+;  File Date : 11:18:10 AM - 27:Apr:2023
 
 
 input(#use);//////
@@ -90,7 +90,8 @@ event($Flow = (     $lastCode =~m/$INPUT/     ||   $lastCode =~m/$LOOP/     ||  
 end( return 1; });// return $Flow; }
 
 input(sub getCode { local ( $code ) = @_;);//
-set($code =~ s/\t//g ;);//delete leading tabs
+set($code  =~ s/\n// ;);//
+set($code =~ s/    //g ;);//delete leading tabs
 set($code =~ s/#.*$//;);//remove comment line
 end( return $code ; });//
 
@@ -123,28 +124,18 @@ output();//print( "-$Line" );
 lend(});//
 output();//print( "---> $count \n" );
 end( return $count; });//
-
-input(sub getMultiline { local ($multiLine,  $Line ) = @_;);//
-branch(if ( $multiLine==0 && ( $Line =~ m/^\t*\"\"\"/   ||    $Line =~ m/^\t*\'\'\'/ )  ));//
-path( { );//
-set($multiLine = 1;);//
-output(print( "set(#);\/\/$_ CONVERTED MULTILINE COMMENTS TO SINGLES\n" ););//
-end(return 1;);//
-path(} else { );//
-branch(if (    $multiLine==1 && ( $Line =~m/^\t*\"\"\"/   || $Line =~m/^\t*\'\'\'/)   ));//
-path( { );//
-set($multiLine = 0;);//
-end(return 0;);//
-bend( } );//
-bend( } );//
-end( return $multiLine ; });//
 event(sub GetToken{ local( $LEVEL, $PREV_LEVEL, $CODE , $PREV_CODE  ) = @_;);//
 generic($DIFF = $LEVEL - $PREV_LEVEL ;);// 
 branch(if ($DIFF > 0  ));//
 path( { );//
-process($TOKEN = "push -->  $PREV_CODE  by $DIFF"  ;);//
+process($TOKEN = "push -->  $PREV_CODE  to  $PREV_LINE LEVEL($PREV_LEVEL) "  ;);//
 path(} else { );//
 set($TOKEN = ""  ;);//$TOKEN = "$CODE"  ;
+bend( } );//
+branch(if ($DIFF > 1 ));//
+path( { );//
+process($TOKEN = "$TOKEN <---! ERROR IN DIFF = $DIFF "  ;);//
+path(} else { );//
 bend( } );//
 end( return $TOKEN;  });//
 
@@ -161,17 +152,24 @@ generic($PREV_LINE = 0;);//
 generic($LEVEL = 1;);//  
 loop(  while(<FILE>) {);//
 set($LINE = $LINE + 1 ;);//
-branch(if ( $_ =~ m/^\n$/  ));//skip all processing of all blank lines
+branch(if (     ( $_ =~m/\"\"\"/   || $_ =~m/\'\'\'/)   ));//
 path( { );//
-output(print( $LINE,"\n" ););//
-path( }else{ );//
-process($multiLine = getMultiline( $multiLine,  $_ ) ;);//////
-output();//print( $CODE,"\n" );
-set($_ =~ s/\n// ;);//
-branch(if ( $_ =~ m/^else:$/  ||   $_ =~ m/\):$/   ));//if ( $_ =~ m/else:$/    )
-path( { );//
-set($_ =~ s/^\t/\t\t/ ;);//
+set($multiLine = ~$multiLine;);//
 bend( } );//
+branch(if ( $_ =~ m/^\n$/  ||  $multiLine ));//skip all processing of all blank lines
+path( { );//
+branch(if ( $multiLine ));//
+path( { );//
+output(print( "$LINE #\n" ););//
+path(} else { );//
+output(print( $LINE,"\n" ););//
+bend( } );//
+path( }else{ );//
+output();//print( $CODE,"\n" );
+branch();//if ( $_ =~ m/^else:$/  ||   $_ =~ m/\):$/   )
+path();// {
+set();//$_ =~ s/^\t/\t\t/ ;
+bend();// } 
 set();//
 process($LEVEL = getIndents( $_  ) ;);//////
 set($COMM = getComment( $_ ) ;);//
@@ -180,7 +178,7 @@ branch(if ( $multiLine==1  ));//if ( $_ =~ m/^\n/  || $multiLine==1  )
 path( {);//
 path(}else{ );//
 generic($DIFF = $PREV_LEVEL -  $LEVEL ;);//  
-branch(if ( $DIFF   > 1    ));//if ( $DIFF   > 1   && $LEVEL != 0 )
+branch(if ( $DIFF   > 0   ));//if ( $DIFF   > 1   && $LEVEL != 0 )
 path( { );//
 loop(while( $DIFF > 0 ) {);//
 set($DIFF =  $DIFF -1 ;);//
@@ -227,4 +225,4 @@ end( });//
 ;    TabsPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 363 312 1640 1630 173 127   875   4294962947    perl.key  0
+; 342 309 2200 1630 164 157   120   4294959271    perl.key  0
