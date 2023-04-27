@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : TabsPythonParser.pl.vfc
-;  File Date : 12:29:17 AM - 27:Apr:2023
+;  File Date : 12:41:54 AM - 27:Apr:2023
 
 
 input(#use);//////
@@ -151,18 +151,22 @@ path( { );//
 path( }else{ );//
 process($multiLine = getMultiline( $multiLine,  $_ ) ;);//////
 set($_ =~ s/    /\t/g ;);//
+branch(if ( $_ =~ m/:\n$/  ));//
+path( { );//
+set($_ =~ s/^\t/\t\t/ ;);//
+bend( } );//
+set();//
 set($_ =~ s/\n// ;);//
 process($LEVEL = getIndents( $_  ) ;);//////
 set($COMM = getComment( $_ ) ;);//
 set($CODE = getCode( $_ ) ;);//
 branch(if ( $multiLine==1  ));//if ( $_ =~ m/^\n/  || $multiLine==1  )
 path( {);//
-output();//print( "set(#);\/\/$_\n" );
 path(}else{ );//
 branch(if ( 1 ));//if ( 0  )
 path( { );//
 generic($DIFF = $PREV_LEVEL -  $LEVEL ;);//  
-branch(if ( $DIFF   > 1 ));//
+branch(if ( $DIFF   > 1   && $LEVEL != 0 ));//
 path( { );//
 loop(while( $DIFF > 1 ) {);//
 set($DIFF =  $DIFF -1 ;);//
@@ -220,4 +224,4 @@ end( });//
 ;    TabsPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 208 223 2150 1522 149 117   612   4294962059    perl.key  0
+; 208 223 2150 1522 173 117   569   4294962066    perl.key  0
