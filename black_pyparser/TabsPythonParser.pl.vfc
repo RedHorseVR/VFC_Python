@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : TabsPythonParser.pl.vfc
-;  File Date : 11:18:10 AM - 27:Apr:2023
+;  File Date : 11:47:54 AM - 27:Apr:2023
 
 
 input(#use);//////
@@ -130,9 +130,14 @@ branch(if ($DIFF > 0  ));//
 path( { );//
 process($TOKEN = "push -->  $PREV_CODE  to  $PREV_LINE LEVEL($PREV_LEVEL) "  ;);//
 path(} else { );//
+branch(if ($DIFF <  0  ));//
+path( { );//
+process($TOKEN = "pop <--  from   $PREV_LINE LEVEL($PREV_LEVEL) "  ;);//$TOKEN = "pop <--  $PREV_CODE  from   $PREV_LINE LEVEL($PREV_LEVEL) "  ;
+path(} else { );//
 set($TOKEN = ""  ;);//$TOKEN = "$CODE"  ;
 bend( } );//
-branch(if ($DIFF > 1 ));//
+bend( } );//
+branch(if ( $DIFF * $DIFF  > 1 ));//
 path( { );//
 process($TOKEN = "$TOKEN <---! ERROR IN DIFF = $DIFF "  ;);//
 path(} else { );//
@@ -149,7 +154,7 @@ set($multiLine = 0;);//
 set($LINE = 0;);//
 generic($PREV_LEVEL = 0;);// ////
 generic($PREV_LINE = 0;);//  
-generic($LEVEL = 1;);//  
+generic($LEVEL = 0;);//  
 loop(  while(<FILE>) {);//
 set($LINE = $LINE + 1 ;);//
 branch(if (     ( $_ =~m/\"\"\"/   || $_ =~m/\'\'\'/)   ));//
@@ -160,6 +165,7 @@ branch(if ( $_ =~ m/^\n$/  ||  $multiLine ));//skip all processing of all blank 
 path( { );//
 branch(if ( $multiLine ));//
 path( { );//
+generic($LEVEL = 0;);//  
 output(print( "$LINE #\n" ););//
 path(} else { );//
 output(print( $LINE,"\n" ););//
@@ -178,28 +184,25 @@ branch(if ( $multiLine==1  ));//if ( $_ =~ m/^\n/  || $multiLine==1  )
 path( {);//
 path(}else{ );//
 generic($DIFF = $PREV_LEVEL -  $LEVEL ;);//  
-branch(if ( $DIFF   > 0   ));//if ( $DIFF   > 1   && $LEVEL != 0 )
+branch(if ( $DIFF   > 1   ));//if ( $DIFF   > 1   && $LEVEL != 0 )
 path( { );//
 loop(while( $DIFF > 0 ) {);//
 set($DIFF =  $DIFF -1 ;);//
 set($BACK_LEVEL  =  $LEVEL + $DIFF;);//
-output(print( $LINE," " ); PrintTabs( $BACK_LEVEL   ); print( $BACK_LEVEL  ,"**\n" ););//
-lend(});//
+set($BACK_DIFF  =  $BACK_LEVEL - $PREV_LEVEL ;);//
+process($TOKEN = GetToken( $BACK_LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE    ););//
+output(print( $LINE,"<$BACK_DIFF>" ); PrintTabs( $BACK_LEVEL   ); print( $BACK_LEVEL  ,"** $TOKEN\n" ););//
 set($PREV_LEVEL = $BACK_LEVEL;);//
+lend(});//
 path( }else{ );//
 process($TOKEN = GetToken( $LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE    ););//
-output(print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL " );  print("$TOKEN \n" ) ;);//
+output(print( $LINE ); print("<$DIFF>"); PrintTabs( $LEVEL ); print( " $LEVEL " );  print("$TOKEN \n" ) ;);//
+bend( } );//
+bend( } );//
+bend( } );//
 set($PREV_LEVEL = $LEVEL;);//
-bend( } );//
-bend( } );//
-branch(if ( $LEVEL == 0  ));//
-path( { );//
-set($PREV_B4_ZERO = $PREV_LEVEL ;);//
-path( }else{ );//
-bend( } );//
 generic($PREV_LINE = $LINE;);//  
 generic($PREV_CODE = $CODE;);//  
-bend( } );//
 lend(  });//# End of SEARCHFILE
 generic(  close ( FILE ););//
 generic(  close ( OUTFILE ););//
@@ -225,4 +228,4 @@ end( });//
 ;    TabsPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 342 309 2200 1630 164 157   120   4294959271    perl.key  0
+; 387 304 2432 1630 150 157   1117   4294960075    perl.key  0
