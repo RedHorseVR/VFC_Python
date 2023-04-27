@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : TabsPythonParser.pl.vfc
-;  File Date : 12:47:11 AM - 27:Apr:2023
+;  File Date : 10:31:08 AM - 27:Apr:2023
 
 
 input(#use);//////
@@ -90,7 +90,7 @@ event($Flow = (     $lastCode =~m/$INPUT/     ||   $lastCode =~m/$LOOP/     ||  
 end( return 1; });// return $Flow; }
 
 input(sub getCode { local ( $code ) = @_;);//
-set($code =~ s/^\t//g ;);//delete leading tabs
+set($code =~ s/\t//g ;);//delete leading tabs
 set($code =~ s/#.*$//;);//remove comment line
 end( return $code ; });//
 
@@ -108,14 +108,20 @@ set(local($match) = @_;);//
 set();//$match =~ s/\*//g;
 set($num = 0 ;);//
 loop(while( $match =~ m/^\t/  ) {);//
-generic($match =~ s/^\t//;);//
+generic($match =~ s/\t//;);//
 set($num = $num + 1 ;);//
 lend(});//
 end(return  $num  ;);//
 end(} );//
 
 input(sub getIndents { local ( $Line ) = @_;);//
-set($count =  NumTabs( $Line  ) ;);//$count = m/\t//g + 1;
+set(local( $count )  = 0 ;);//
+loop(while( $Line =~ m/    / ) {);//
+set($count = $count + 1 ;);//
+set($Line =~ s/    /T/ ;);//
+output();//print( "-$Line" );
+lend(});//
+output();//print( "---> $count \n" );
 end( return $count; });//
 
 input(sub getMultiline { local ($multiLine,  $Line ) = @_;);//
@@ -132,6 +138,15 @@ end(return 0;);//
 bend( } );//
 bend( } );//
 end( return $multiLine ; });//
+event(sub GetToken{ local( $LEVEL, $PREV_LEVEL, $CODE , $PREV_CODE  ) = @_;);//
+generic($DIFF = $LEVEL - $PREV_LEVEL ;);// 
+branch(if ($DIFF > 0  ));//
+path( { );//
+process($TOKEN = "push -->  $PREV_CODE  by $DIFF"  ;);//
+path(} else { );//
+set($TOKEN = ""  ;);//$TOKEN = "$CODE"  ;
+bend( } );//
+end( return $TOKEN;  });//
 
 input(sub Parse{);//
 output(open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";);//
@@ -141,18 +156,19 @@ generic($lastCount = 0;);// ////
 set(  $ParsedFile  = "";);//
 set($multiLine = 0;);//
 set($LINE = 0;);//
-generic($PREV_LEVEL == 1;);// ////
-generic($PREV_B4_ZERO == 1;);//  
-generic($LEVEL == 1;);// ////
+generic($PREV_LEVEL = 0;);// ////
+generic($PREV_LINE = 0;);//  
+generic($LEVEL = 1;);//  
 loop(  while(<FILE>) {);//
 set($LINE = $LINE + 1 ;);//
-branch(if ( $_ =~ m/^\n$/  ));//skip all blank lines
+branch(if ( $_ =~ m/^\n$/  ));//skip all processing of all blank lines
 path( { );//
+output(print( $LINE,"\n" ););//
 path( }else{ );//
 process($multiLine = getMultiline( $multiLine,  $_ ) ;);//////
-set($_ =~ s/    /\t/g ;);//
+output();//print( $CODE,"\n" );
 set($_ =~ s/\n// ;);//
-branch(if ( $_ =~ m/^else:$/  ||   $_ =~ m/^\):$/   ));//if ( $_ =~ m/else:$/    )
+branch(if ( $_ =~ m/^else:$/  ||   $_ =~ m/\):$/   ));//if ( $_ =~ m/else:$/    )
 path( { );//
 set($_ =~ s/^\t/\t\t/ ;);//
 bend( } );//
@@ -163,33 +179,19 @@ set($CODE = getCode( $_ ) ;);//
 branch(if ( $multiLine==1  ));//if ( $_ =~ m/^\n/  || $multiLine==1  )
 path( {);//
 path(}else{ );//
-branch(if ( 1 ));//if ( 0  )
-path( { );//
 generic($DIFF = $PREV_LEVEL -  $LEVEL ;);//  
-branch(if ( $DIFF   > 1   && $LEVEL != 0 ));//
+branch(if ( $DIFF   > 1    ));//if ( $DIFF   > 1   && $LEVEL != 0 )
 path( { );//
-loop(while( $DIFF > 1 ) {);//
+loop(while( $DIFF > 0 ) {);//
 set($DIFF =  $DIFF -1 ;);//
-output(print( $LINE ); PrintTabs( $LEVEL +$DIFF ); print( $LEVEL+$DIFF,"**\n" ););//
+set($BACK_LEVEL  =  $LEVEL + $DIFF;);//
+output(print( $LINE," " ); PrintTabs( $BACK_LEVEL   ); print( $BACK_LEVEL  ,"**\n" ););//
 lend(});//
+set($PREV_LEVEL = $BACK_LEVEL;);//
 path( }else{ );//
-output(print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL\n" ););//
-bend( } );//
-path( }else{ );//
-output(print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL\n" ););//
-branch(if ( $LEVEL == 0 && $PREV_LEVEL > 1 ));//SIGNIFIES WE ARE STILL WINTH A STRUCTURE
-path( { );//
-path( }else{ );//
-output(print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL\n" ););//
-bend( } );//
-branch(if ( $PREV_LEVEL == 0  && $PREV_B4_ZERO > 1 ));//
-path( { );//
-loop(while( $PREV_B4_ZERO > $LEVEL ) {);//
-set($PREV_B4_ZERO = $PREV_B4_ZERO -1 ;);//
-output(print( $LINE ); PrintTabs( $PREV_B4_ZERO ); print( "*$PREV_B4_ZERO\n" ););//
-lend(});//
-path( }else{ );//
-bend( } );//
+process($TOKEN = GetToken( $LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE    ););//
+output(print( $LINE ); PrintTabs( $LEVEL ); print( " $LEVEL " );  print("$TOKEN \n" ) ;);//
+set($PREV_LEVEL = $LEVEL;);//
 bend( } );//
 bend( } );//
 branch(if ( $LEVEL == 0  ));//
@@ -197,7 +199,8 @@ path( { );//
 set($PREV_B4_ZERO = $PREV_LEVEL ;);//
 path( }else{ );//
 bend( } );//
-set($PREV_LEVEL = $LEVEL;);//
+generic($PREV_LINE = $LINE;);//  
+generic($PREV_CODE = $CODE;);//  
 bend( } );//
 lend(  });//# End of SEARCHFILE
 generic(  close ( FILE ););//
@@ -224,4 +227,4 @@ end( });//
 ;    TabsPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 208 223 2150 1522 173 227   647   4294956706    perl.key  0
+; 363 312 1640 1630 173 127   875   4294962947    perl.key  0
