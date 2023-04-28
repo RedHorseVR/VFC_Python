@@ -1,0 +1,912 @@
+;  IRL FlowCode Version: Version 10.0
+;  c1995-2015: Visual Flow Coder by 2LResearch
+;
+;  File Name : test.py.vfc
+;  File Date : 12:31:25 AM - 28:Apr:2023
+
+set( import torch, torchvision);// 
+set( import torch.nn as nn);// 
+set( import torch.nn.functional as F);// 
+set( from torchvision.models.resnet import Bottleneck);// 
+set( import numpy as np);// 
+set( from itertools import product);// 
+set( from math import sqrt);// 
+set( from typing import List);// 
+set( from collections import defaultdict);// 
+set( from data.config import cfg, mask_type);// 
+set( from layers import Detect);// 
+set( from layers.interpolate import InterpolateModule);// 
+set( from backbone import construct_backbone);// 
+set( import torch.backends.cudnn as cudnn);// 
+set( from utils import timer);// 
+set( from utils.functions import MovingAverage, make_net);// 
+set( torch.cuda.current_device());// 
+set( use_jit = torch.cuda.device_count() <= 1);// 
+branch( if not use_jit:);// > 0 
+path();//
+output( print("Multiple GPUs detected! Turning off JIT."));// 
+bend( );//if not use_jit: 
+set(  );//  if 
+set( ScriptModuleWrapper = torch.jit.ScriptModule if use_jit else nn.Module);// 
+set( script_method_wrapper = torch.jit.script_method if use_jit else lambda fn, _rcn=None: fn);// 
+
+input( class Concat(nn.Module):);///
+branch();///
+path();///
+path();// > 0 < 
+
+input( def __init__(self, nets, extra_params):);///
+branch();///
+path();///
+path();// > 1 < 
+set( super().__init__());// 
+set( self.nets = nn.ModuleList(nets));// 
+set( self.extra_params = extra_params);// 
+bend();///
+end( );//def __init__(self, nets, extra_params): > 1 
+
+input( def forward(self, x):);///
+branch();///
+path();///
+path();// > 1 < 
+set( return torch.cat([net(x) for net in self.nets], dim=1, **self.extra_params));// 
+bend();///
+end( );//def forward(self, x): > 1 
+bend();///
+end( );//class Concat(nn.Module): > 0 
+set( prior_cache = defaultdict(lambda: None));// 
+
+input( class PredictionModule(nn.Module):);///
+branch();///
+path();///
+path();// > 0 < 
+
+input( def __init__();///
+branch();///
+path();///
+path();// > 1 < 
+set( self,);// 
+set( in_channels,);// 
+set( out_channels=1024,);// 
+set( aspect_ratios=[[1]],);// 
+set( scales=[1],);// 
+set( parent=None,);// 
+set( index=0,);// 
+set( ):);// 
+set( super().__init__());// 
+set( self.num_classes = cfg.num_classes);// 
+set( self.mask_dim = cfg.mask_dim);// 
+set( self.num_priors = sum(len(x) * len(scales) for x in aspect_ratios));// 
+set( self.parent = [parent]);// 
+set( self.index = index);// 
+set( self.num_heads = cfg.num_heads);// 
+branch( if ();// > 2 
+path();//
+set( cfg.mask_proto_split_prototypes_by_head);// 
+set( and cfg.mask_type == mask_type.lincomb);// 
+set( ):);// 
+set( self.mask_dim = self.mask_dim // self.num_heads);// 
+bend( );//if ( 
+branch( if cfg.mask_proto_prototypes_as_features:);// > 2 
+path();//
+set( in_channels += self.mask_dim);// 
+bend( );//if cfg.mask_proto_prototypes_as_features: 
+branch( if parent is None:);// > 2 
+path();//
+branch( if cfg.extra_head_net is None:);// > 3 
+path();//
+set( out_channels = in_channels);// 
+path( else:);// 
+set( self.upfeature, out_channels = make_net(in_channels, cfg.extra_head_net));// 
+bend( );//if cfg.extra_head_net is None: 
+branch( if cfg.use_prediction_module:);// > 3 
+path();//
+set( self.block = Bottleneck(out_channels, out_channels // 4));// 
+set( self.conv = nn.Conv2d();// 
+set( out_channels, out_channels, kernel_size=1, bias=True);// 
+set( ));// 
+set( self.bn = nn.BatchNorm2d(out_channels));// 
+bend( );//if cfg.use_prediction_module: 
+set( self.bbox_layer = nn.Conv2d();// 
+set( out_channels, self.num_priors * 4, **cfg.head_layer_params);// 
+set( ));// 
+set( self.conf_layer = nn.Conv2d();// 
+set( out_channels,);// 
+set( self.num_priors * self.num_classes,);// 
+set( **cfg.head_layer_params);// 
+set( ));// 
+set( self.mask_layer = nn.Conv2d();// 
+set( out_channels, self.num_priors * self.mask_dim, **cfg.head_layer_params);// 
+set( ));// 
+branch( if cfg.use_mask_scoring:);// > 3 
+path();//
+set( self.score_layer = nn.Conv2d();// 
+set( out_channels, self.num_priors, **cfg.head_layer_params);// 
+set( ));// 
+bend( );//if cfg.use_mask_scoring: 
+branch( if cfg.use_instance_coeff:);// > 3 
+path();//
+set( self.inst_layer = nn.Conv2d();// 
+set( out_channels,);// 
+set( self.num_priors * cfg.num_instance_coeffs,);// 
+set( **cfg.head_layer_params);// 
+set( ));// 
+bend( );//if cfg.use_instance_coeff: 
+
+input( def make_extra(num_layers):);///
+branch();///
+path();///
+path();// > 3 < 
+branch( if num_layers == 0:);// > 4 
+path();//
+set( return lambda x: x);// 
+path( else:);// 
+set( return nn.Sequential();// 
+set( *sum();// 
+set( [);// 
+set( [);// 
+set( nn.Conv2d();// 
+set( out_channels,);// 
+set( out_channels,);// 
+set( kernel_size=3,);// 
+set( padding=1,);// 
+set( ),);// 
+set( nn.ReLU(inplace=True),);// 
+set( ]);// 
+set( for _ in range(num_layers));// 
+set( ],);// 
+set( [],);// 
+set( ));// 
+set( ));// 
+bend( );//if num_layers == 0: 
+bend();///
+set( self.bbox_extra, self.conf_extra, self.mask_extra = [);// 
+set( make_extra(x) for x in cfg.extra_layers);// 
+set( ]);// 
+branch( if cfg.mask_type == mask_type.lincomb and cfg.mask_proto_coeff_gate:);// > 3 
+path();//
+set( self.gate_layer = nn.Conv2d();// 
+set( out_channels,);// 
+set( self.num_priors * self.mask_dim,);// 
+set( kernel_size=3,);// 
+set( padding=1,);// 
+set( ));// 
+bend( );//if cfg.mask_type == mask_type.lincomb and cfg.mask_proto_coeff_gate: 
+bend( );//if parent is None: 
+set( self.aspect_ratios = aspect_ratios);// 
+set( self.scales = scales);// 
+set( self.priors = None);// 
+set( self.last_conv_size = None);// 
+set( self.last_img_size = None);// 
+bend();///
+end( );//def __init__( > 1 
+
+input( def forward(self, x):);///
+branch();///
+path();///
+path();// > 1 < 
+set( src = self if self.parent[0] is None else self.parent[0]);// 
+set( conv_h = x.size(2));// 
+set( conv_w = x.size(3));// 
+branch( if cfg.extra_head_net is not None:);// > 2 
+path();//
+set( x = src.upfeature(x));// 
+bend( );//if cfg.extra_head_net is not None: 
+branch( if cfg.use_prediction_module:);// > 2 
+path();//
+set( a = src.block(x));// 
+set( b = src.conv(x));// 
+set( b = src.bn(b));// 
+set( b = F.relu(b));// 
+set( x = a + b);// 
+bend( );//if cfg.use_prediction_module: 
+set( bbox_x = src.bbox_extra(x));// 
+set( conf_x = src.conf_extra(x));// 
+set( mask_x = src.mask_extra(x));// 
+set( bbox = ();// 
+set( src.bbox_layer(bbox_x));// 
+set( .permute(0, 2, 3, 1));// 
+set( .contiguous());// 
+set( .view(x.size(0), -1, 4));// 
+set( ));// 
+set( conf = ();// 
+set( src.conf_layer(conf_x));// 
+set( .permute(0, 2, 3, 1));// 
+set( .contiguous());// 
+set( .view(x.size(0), -1, self.num_classes));// 
+set( ));// 
+branch( if cfg.eval_mask_branch:);// > 2 
+path();//
+set( mask = ();// 
+set( src.mask_layer(mask_x));// 
+set( .permute(0, 2, 3, 1));// 
+set( .contiguous());// 
+set( .view(x.size(0), -1, self.mask_dim));// 
+set( ));// 
+path( else:);// 
+set( mask = torch.zeros();// 
+set( x.size(0), bbox.size(1), self.mask_dim, device=bbox.device);// 
+set( ));// 
+bend( );//if cfg.eval_mask_branch: 
+branch( if cfg.use_mask_scoring:);// > 2 
+path();//
+set( score = ();// 
+set( src.score_layer(x));// 
+set( .permute(0, 2, 3, 1));// 
+set( .contiguous());// 
+set( .view(x.size(0), -1, 1));// 
+set( ));// 
+bend( );//if cfg.use_mask_scoring: 
+branch( if cfg.use_instance_coeff:);// > 2 
+path();//
+set( inst = ();// 
+set( src.inst_layer(x));// 
+set( .permute(0, 2, 3, 1));// 
+set( .contiguous());// 
+set( .view(x.size(0), -1, cfg.num_instance_coeffs));// 
+set( ));// 
+bend( );//if cfg.use_instance_coeff: 
+branch( if cfg.use_yolo_regressors:);// > 2 
+path();//
+set( bbox[:, :, :2] = torch.sigmoid(bbox[:, :, :2]) - 0.5);// 
+set( bbox[:, :, 0] /= conv_w);// 
+set( bbox[:, :, 1] /= conv_h);// 
+bend( );//if cfg.use_yolo_regressors: 
+branch( if cfg.eval_mask_branch:);// > 2 
+path();//
+branch( if cfg.mask_type == mask_type.direct:);// > 3 
+path();//
+set( mask = torch.sigmoid(mask));// 
+bend( );//if cfg.mask_type == mask_type.direct: 
+path( elif cfg.mask_type == mask_type.lincomb:);// 
+set( mask = cfg.mask_proto_coeff_activation(mask));// 
+branch( if cfg.mask_proto_coeff_gate:);// > 4 
+path();//
+set( gate = ();// 
+set( src.gate_layer(x));// 
+set( .permute(0, 2, 3, 1));// 
+set( .contiguous());// 
+set( .view(x.size(0), -1, self.mask_dim));// 
+set( ));// 
+set( mask = mask * torch.sigmoid(gate));// 
+bend( );//if cfg.mask_proto_coeff_gate: 
+bend( );//if cfg.eval_mask_branch: 
+branch( if ();// > 2 
+path();//
+set( cfg.mask_proto_split_prototypes_by_head);// 
+set( and cfg.mask_type == mask_type.lincomb);// 
+set( ):);// 
+set( mask = F.pad();// 
+set( mask,);// 
+set( ();// 
+set( self.index * self.mask_dim,);// 
+set( (self.num_heads - self.index - 1) * self.mask_dim,);// 
+set( ),);// 
+set( mode="constant",);// 
+set( value=0,);// 
+set( ));// 
+bend( );//if ( 
+set( priors = self.make_priors(conv_h, conv_w, x.device));// 
+set( preds = {"loc": bbox, "conf": conf, "mask": mask, "priors": priors});// 
+branch( if cfg.use_mask_scoring:);// > 2 
+path();//
+set( preds["score"] = score);// 
+bend( );//if cfg.use_mask_scoring: 
+branch( if cfg.use_instance_coeff:);// > 2 
+path();//
+set( preds["inst"] = inst);// 
+bend( );//if cfg.use_instance_coeff: 
+set( return preds);// 
+bend();///
+end( );//def forward(self, x): > 1 
+
+input( def make_priors(self, conv_h, conv_w, device):);///
+branch();///
+path();///
+path();// > 1 < 
+set( """Note that priors are [x,y,width,height] where (x,y) is the center of the box.""");//
+set( global prior_cache);// 
+set( size = (conv_h, conv_w));// 
+set( with timer.env("makepriors"):);// 
+branch( if self.last_img_size != (cfg._tmp_img_w, cfg._tmp_img_h):);// > 3 
+path();//
+set( prior_data = []);// 
+set( for j, i in product(range(conv_h), range(conv_w)):);// 
+set( x = (i + 0.5) / conv_w);// 
+set( y = (j + 0.5) / conv_h);// 
+set( for ars in self.aspect_ratios:);// 
+set( for scale in self.scales:);// 
+set( for ar in ars:);// 
+branch( if not cfg.backbone.preapply_sqrt:);// > 8 
+path();//
+set( ar = sqrt(ar));// 
+bend( );//if not cfg.backbone.preapply_sqrt: 
+branch( if cfg.backbone.use_pixel_scales:);// > 8 
+path();//
+set( w = scale * ar / cfg.max_size);// 
+set( h = scale / ar / cfg.max_size);// 
+path( else:);// 
+set( w = scale * ar / conv_w);// 
+set( h = scale / ar / conv_h);// 
+bend( );//if cfg.backbone.use_pixel_scales: 
+branch( if cfg.backbone.use_square_anchors:);// > 8 
+path();//
+set( h = w);// 
+bend( );//if cfg.backbone.use_square_anchors: 
+set( prior_data += [x, y, w, h]);// 
+set( self.priors = ();// 
+set( torch.Tensor(prior_data, device=device).view(-1, 4).detach());// 
+set( ));// 
+set( self.priors.requires_grad = False);// 
+set( self.last_img_size = (cfg._tmp_img_w, cfg._tmp_img_h));// 
+set( self.last_conv_size = (conv_w, conv_h));// 
+set( prior_cache[size] = None);// 
+bend( );//if self.last_img_size != (cfg._tmp_img_w, cfg._tmp_img_h): 
+path( elif self.priors.device != device:);// 
+branch( if prior_cache[size] is None:);// > 4 
+path();//
+set( prior_cache[size] = {});// 
+bend( );//if prior_cache[size] is None: 
+branch( if device not in prior_cache[size]:);// > 4 
+path();//
+set( prior_cache[size][device] = self.priors.to(device));// 
+bend( );//if device not in prior_cache[size]: 
+set( self.priors = prior_cache[size][device]);// 
+set( return self.priors);// 
+bend();///
+end( );//def make_priors(self, conv_h, conv_w, device): > 1 
+bend();///
+end( );//class PredictionModule(nn.Module): > 0 
+
+input( class FPN(ScriptModuleWrapper):);///
+branch();///
+path();///
+path();// > 0 < 
+set( __constants__ = [);// 
+set( "interpolation_mode",);// 
+set( "num_downsample",);// 
+set( "use_conv_downsample",);// 
+set( "relu_pred_layers",);// 
+set( "lat_layers",);// 
+set( "pred_layers",);// 
+set( "downsample_layers",);// 
+set( "relu_downsample_layers",);// 
+set( ]);// 
+
+input( def __init__(self, in_channels):);///
+branch();///
+path();///
+path();// > 1 < 
+set( super().__init__());// 
+set( self.lat_layers = nn.ModuleList();// 
+set( [);// 
+set( nn.Conv2d(x, cfg.fpn.num_features, kernel_size=1));// 
+set( for x in reversed(in_channels));// 
+set( ]);// 
+set( ));// 
+set( padding = 1 if cfg.fpn.pad else 0);// 
+set( self.pred_layers = nn.ModuleList();// 
+set( [);// 
+set( nn.Conv2d();// 
+set( cfg.fpn.num_features,);// 
+set( cfg.fpn.num_features,);// 
+set( kernel_size=3,);// 
+set( padding=padding,);// 
+set( ));// 
+set( for _ in in_channels);// 
+set( ]);// 
+set( ));// 
+branch( if cfg.fpn.use_conv_downsample:);// > 2 
+path();//
+set( self.downsample_layers = nn.ModuleList();// 
+set( [);// 
+set( nn.Conv2d();// 
+set( cfg.fpn.num_features,);// 
+set( cfg.fpn.num_features,);// 
+set( kernel_size=3,);// 
+set( padding=1,);// 
+set( stride=2,);// 
+set( ));// 
+set( for _ in range(cfg.fpn.num_downsample));// 
+set( ]);// 
+set( ));// 
+bend( );//if cfg.fpn.use_conv_downsample: 
+set( self.interpolation_mode = cfg.fpn.interpolation_mode);// 
+set( self.num_downsample = cfg.fpn.num_downsample);// 
+set( self.use_conv_downsample = cfg.fpn.use_conv_downsample);// 
+set( self.relu_downsample_layers = cfg.fpn.relu_downsample_layers);// 
+set( self.relu_pred_layers = cfg.fpn.relu_pred_layers);// 
+bend();///
+end( );//def __init__(self, in_channels): > 1 
+set( @script_method_wrapper);// 
+
+input( def forward(self, convouts: List[torch.Tensor]):);///
+branch();///
+path();///
+path();// > 1 < 
+set( out = []);// 
+set( x = torch.zeros(1, device=convouts[0].device));// 
+set( for i in range(len(convouts)):);// 
+set( out.append(x));// 
+set( j = len(convouts));// 
+set( for lat_layer in self.lat_layers:);// 
+set( j -= 1);// 
+branch( if j < len(convouts) - 1:);// > 3 
+path();//
+set( _, _, h, w = convouts[j].size());// 
+set( x = F.interpolate();// 
+set( x, size=(h, w), mode=self.interpolation_mode, align_corners=False);// 
+set( ));// 
+bend( );//if j < len(convouts) - 1: 
+set( x = x + lat_layer(convouts[j]));// 
+set( out[j] = x);// 
+set( j = len(convouts));// 
+set( for pred_layer in self.pred_layers:);// 
+set( j -= 1);// 
+set( out[j] = pred_layer(out[j]));// 
+branch( if self.relu_pred_layers:);// > 3 
+path();//
+set( F.relu(out[j], inplace=True));// 
+bend( );//if self.relu_pred_layers: 
+set( cur_idx = len(out));// 
+branch( if self.use_conv_downsample:);// > 2 
+path();//
+set( for downsample_layer in self.downsample_layers:);// 
+set( out.append(downsample_layer(out[-1])));// 
+path( else:);// 
+set( for idx in range(self.num_downsample):);// 
+set( out.append(nn.functional.max_pool2d(out[-1], 1, stride=2)));// 
+bend( );//if self.use_conv_downsample: 
+branch( if self.relu_downsample_layers:);// > 2 
+path();//
+set( for idx in range(len(out) - cur_idx):);// 
+set( out[idx] = F.relu(out[idx + cur_idx], inplace=False));// 
+bend( );//if self.relu_downsample_layers: 
+set( return out);// 
+bend();///
+end( );//def forward(self, convouts: List[torch.Tensor]): > 1 
+bend();///
+end( );//class FPN(ScriptModuleWrapper): > 0 
+
+input( class FastMaskIoUNet(ScriptModuleWrapper):);///
+branch();///
+path();///
+path();// > 0 < 
+
+input( def __init__(self):);///
+branch();///
+path();///
+path();// > 1 < 
+set( super().__init__());// 
+set( input_channels = 1);// 
+set( last_layer = [(cfg.num_classes - 1, 1, {})]);// 
+set( self.maskiou_net, _ = make_net();// 
+set( input_channels, cfg.maskiou_net + last_layer, include_last_relu=True);// 
+set( ));// 
+bend();///
+end( );//def __init__(self): > 1 
+
+input( def forward(self, x):);///
+branch();///
+path();///
+path();// > 1 < 
+set( x = self.maskiou_net(x));// 
+set( maskiou_p = F.max_pool2d(x, kernel_size=x.size()[2:]).squeeze(-1).squeeze(-1));// 
+set( return maskiou_p);// 
+bend();///
+end( );//def forward(self, x): > 1 
+bend();///
+end( );//class FastMaskIoUNet(ScriptModuleWrapper): > 0 
+
+input( class Yolact(nn.Module):);///
+branch();///
+path();///
+path();// > 0 < 
+
+input( def __init__(self):);///
+branch();///
+path();///
+path();// > 1 < 
+set( super().__init__());// 
+set( self.backbone = construct_backbone(cfg.backbone));// 
+branch( if cfg.freeze_bn:);// > 2 
+path();//
+set( self.freeze_bn());// 
+bend( );//if cfg.freeze_bn: 
+branch( if cfg.mask_type == mask_type.direct:);// > 2 
+path();//
+set( cfg.mask_dim = cfg.mask_size**2);// 
+bend( );//if cfg.mask_type == mask_type.direct: 
+path( elif cfg.mask_type == mask_type.lincomb:);// 
+branch( if cfg.mask_proto_use_grid:);// > 3 
+path();//
+set( self.grid = torch.Tensor(np.load(cfg.mask_proto_grid_file)));// 
+set( self.num_grids = self.grid.size(0));// 
+path( else:);// 
+set( self.num_grids = 0);// 
+bend( );//if cfg.mask_proto_use_grid: 
+set( self.proto_src = cfg.mask_proto_src);// 
+branch( if self.proto_src is None:);// > 3 
+path();//
+set( in_channels = 3);// 
+bend( );//if self.proto_src is None: 
+path( elif cfg.fpn is not None:);// 
+set( in_channels = cfg.fpn.num_features);// 
+path( else:);// 
+set( in_channels = self.backbone.channels[self.proto_src]);// 
+set( in_channels += self.num_grids);// 
+set( self.proto_net, cfg.mask_dim = make_net();// 
+set( in_channels, cfg.mask_proto_net, include_last_relu=False);// 
+set( ));// 
+branch( if cfg.mask_proto_bias:);// > 3 
+path();//
+set( cfg.mask_dim += 1);// 
+bend( );//if cfg.mask_proto_bias: 
+set( self.selected_layers = cfg.backbone.selected_layers);// 
+set( src_channels = self.backbone.channels);// 
+branch( if cfg.use_maskiou:);// > 2 
+path();//
+set( self.maskiou_net = FastMaskIoUNet());// 
+bend( );//if cfg.use_maskiou: 
+branch( if cfg.fpn is not None:);// > 2 
+path();//
+set( self.fpn = FPN([src_channels[i] for i in self.selected_layers]));// 
+set( self.selected_layers = list();// 
+set( range(len(self.selected_layers) + cfg.fpn.num_downsample));// 
+set( ));// 
+set( src_channels = [cfg.fpn.num_features] * len(self.selected_layers));// 
+bend( );//if cfg.fpn is not None: 
+set( self.prediction_layers = nn.ModuleList());// 
+set( cfg.num_heads = len(self.selected_layers));// 
+set( for idx, layer_idx in enumerate(self.selected_layers):);// 
+set( parent = None);// 
+branch( if cfg.share_prediction_module and idx > 0:);// > 3 
+path();//
+set( parent = self.prediction_layers[0]);// 
+bend( );//if cfg.share_prediction_module and idx > 0: 
+set( pred = PredictionModule();// 
+set( src_channels[layer_idx],);// 
+set( src_channels[layer_idx],);// 
+set( aspect_ratios=cfg.backbone.pred_aspect_ratios[idx],);// 
+set( scales=cfg.backbone.pred_scales[idx],);// 
+set( parent=parent,);// 
+set( index=idx,);// 
+set( ));// 
+set( self.prediction_layers.append(pred));// 
+branch( if cfg.use_class_existence_loss:);// > 2 
+path();//
+set( self.class_existence_fc = nn.Linear(src_channels[-1], cfg.num_classes - 1));// 
+bend( );//if cfg.use_class_existence_loss: 
+branch( if cfg.use_semantic_segmentation_loss:);// > 2 
+path();//
+set( self.semantic_seg_conv = nn.Conv2d();// 
+set( src_channels[0], cfg.num_classes - 1, kernel_size=1);// 
+set( ));// 
+bend( );//if cfg.use_semantic_segmentation_loss: 
+set( self.detect = Detect();// 
+set( cfg.num_classes,);// 
+set( bkg_label=0,);// 
+set( top_k=cfg.nms_top_k,);// 
+set( conf_thresh=cfg.nms_conf_thresh,);// 
+set( nms_thresh=cfg.nms_thresh,);// 
+set( ));// 
+bend();///
+end( );//def __init__(self): > 1 
+
+input( def save_weights(self, path):);///
+branch();///
+path();///
+path();// > 1 < 
+set( """Saves the model's weights using compression because the file sizes were getting too big.""");//
+set( torch.save(self.state_dict(), path));// 
+bend();///
+end( );//def save_weights(self, path): > 1 
+
+input( def load_weights(self, path):);///
+branch();///
+path();///
+path();// > 1 < 
+set( """Loads weights from a compressed save file.""");//
+set( state_dict = torch.load(path));// 
+set( for key in list(state_dict.keys()):);// 
+branch( if key.startswith("backbone.layer") and not key.startswith();// > 3 
+path();//
+set( "backbone.layers");//
+set( ):);// 
+set( del state_dict[key]);// 
+bend( );//if key.startswith("backbone.layer") and not key.startswith( 
+branch( if key.startswith("fpn.downsample_layers."):);// > 3 
+path();//
+branch( if ();// > 4 
+path();//
+set( cfg.fpn is not None);// 
+set( and int(key.split(".")[2]) >= cfg.fpn.num_downsample);// 
+set( ):);// 
+set( del state_dict[key]);// 
+bend( );//if ( 
+bend( );//if key.startswith("fpn.downsample_layers."): 
+set( self.load_state_dict(state_dict));// 
+bend();///
+end( );//def load_weights(self, path): > 1 
+
+input( def init_weights(self, backbone_path):);///
+branch();///
+path();///
+path();// > 1 < 
+set( """Initialize weights for training.""");//
+set( self.backbone.init_backbone(backbone_path));// 
+set( conv_constants = getattr(nn.Conv2d(1, 1, 1), "__constants__"));// 
+
+input( def all_in(x, y):);///
+branch();///
+path();///
+path();// > 2 < 
+set( for _x in x:);// 
+branch( if _x not in y:);// > 4 
+path();//
+set( return False);// 
+bend( );//if _x not in y: 
+set( return True);// 
+bend();///
+end( );//def all_in(x, y): > 2 
+set( for name, module in self.named_modules():);// 
+set( is_script_conv = False);// 
+branch( if "Script" in type(module).__name__:);// > 3 
+path();//
+branch( if hasattr(module, "original_name"):);// > 4 
+path();//
+set( is_script_conv = "Conv" in module.original_name);// 
+path( else:);// 
+set( is_script_conv = all_in();// 
+set( module.__dict__["_constants_set"], conv_constants);// 
+set( ) and all_in(conv_constants, module.__dict__["_constants_set"]));// 
+bend( );//if hasattr(module, "original_name"): 
+bend( );//if "Script" in type(module).__name__: 
+set( is_conv_layer = isinstance(module, nn.Conv2d) or is_script_conv);// 
+branch( if is_conv_layer and module not in self.backbone.backbone_modules:);// > 3 
+path();//
+set( nn.init.xavier_uniform_(module.weight.data));// 
+branch( if module.bias is not None:);// > 4 
+path();//
+branch( if cfg.use_focal_loss and "conf_layer" in name:);// > 5 
+path();//
+branch( if not cfg.use_sigmoid_focal_loss:);// > 6 
+path();//
+set( module.bias.data[0] = np.log();// 
+set( (1 - cfg.focal_loss_init_pi) / cfg.focal_loss_init_pi);// 
+set( ));// 
+set( module.bias.data[1:] = -np.log(module.bias.size(0) - 1));// 
+path( else:);// 
+set( module.bias.data[0] = -np.log();// 
+set( cfg.focal_loss_init_pi / (1 - cfg.focal_loss_init_pi));// 
+set( ));// 
+set( module.bias.data[1:] = -np.log();// 
+set( (1 - cfg.focal_loss_init_pi) / cfg.focal_loss_init_pi);// 
+set( ));// 
+bend( );//if not cfg.use_sigmoid_focal_loss: 
+path( else:);// 
+set( module.bias.data.zero_());// 
+bend( );//if cfg.use_focal_loss and "conf_layer" in name: 
+bend( );//if module.bias is not None: 
+bend( );//if is_conv_layer and module not in self.backbone.backbone_modules: 
+bend();///
+end( );//def init_weights(self, backbone_path): > 1 
+
+input( def train(self, mode=True):);///
+branch();///
+path();///
+path();// > 1 < 
+set( super().train(mode));// 
+branch( if cfg.freeze_bn:);// > 2 
+path();//
+set( self.freeze_bn());// 
+bend( );//if cfg.freeze_bn: 
+bend();///
+end( );//def train(self, mode=True): > 1 
+
+input( def freeze_bn(self, enable=False):);///
+branch();///
+path();///
+path();// > 1 < 
+set( """Adapted from https://discuss.pytorch.org/t/how-to-train-with-frozen-batchnorm/12106/8""");//
+set( for module in self.modules():);// 
+branch( if isinstance(module, nn.BatchNorm2d):);// > 3 
+path();//
+set( module.train() if enable else module.eval());// 
+set( module.weight.requires_grad = enable);// 
+set( module.bias.requires_grad = enable);// 
+bend( );//if isinstance(module, nn.BatchNorm2d): 
+bend();///
+end( );//def freeze_bn(self, enable=False): > 1 
+
+input( def forward(self, x):);///
+branch();///
+path();///
+path();// > 1 < 
+set( """The input should be of size [batch_size, 3, img_h, img_w]""");//
+set( _, _, img_h, img_w = x.size());// 
+set( cfg._tmp_img_h = img_h);// 
+set( cfg._tmp_img_w = img_w);// 
+set( with timer.env("backbone"):);// 
+set( outs = self.backbone(x));// 
+branch( if cfg.fpn is not None:);// > 2 
+path();//
+set( with timer.env("fpn"):);// 
+set( outs = [outs[i] for i in cfg.backbone.selected_layers]);// 
+set( outs = self.fpn(outs));// 
+bend( );//if cfg.fpn is not None: 
+set( proto_out = None);// 
+branch( if cfg.mask_type == mask_type.lincomb and cfg.eval_mask_branch:);// > 2 
+path();//
+set( with timer.env("proto"):);// 
+set( proto_x = x if self.proto_src is None else outs[self.proto_src]);// 
+branch( if self.num_grids > 0:);// > 4 
+path();//
+set( grids = self.grid.repeat(proto_x.size(0), 1, 1, 1));// 
+set( proto_x = torch.cat([proto_x, grids], dim=1));// 
+bend( );//if self.num_grids > 0: 
+set( proto_out = self.proto_net(proto_x));// 
+set( proto_out = cfg.mask_proto_prototype_activation(proto_out));// 
+branch( if cfg.mask_proto_prototypes_as_features:);// > 4 
+path();//
+set( proto_downsampled = proto_out.clone());// 
+branch( if cfg.mask_proto_prototypes_as_features_no_grad:);// > 5 
+path();//
+set( proto_downsampled = proto_out.detach());// 
+bend( );//if cfg.mask_proto_prototypes_as_features_no_grad: 
+bend( );//if cfg.mask_proto_prototypes_as_features: 
+set( proto_out = proto_out.permute(0, 2, 3, 1).contiguous());// 
+branch( if cfg.mask_proto_bias:);// > 4 
+path();//
+set( bias_shape = [x for x in proto_out.size()]);// 
+set( bias_shape[-1] = 1);// 
+set( proto_out = torch.cat([proto_out, torch.ones(*bias_shape)], -1));// 
+bend( );//if cfg.mask_proto_bias: 
+bend( );//if cfg.mask_type == mask_type.lincomb and cfg.eval_mask_branch: 
+set( with timer.env("pred_heads"):);// 
+set( pred_outs = {"loc": [], "conf": [], "mask": [], "priors": []});// 
+branch( if cfg.use_mask_scoring:);// > 3 
+path();//
+set( pred_outs["score"] = []);// 
+bend( );//if cfg.use_mask_scoring: 
+branch( if cfg.use_instance_coeff:);// > 3 
+path();//
+set( pred_outs["inst"] = []);// 
+bend( );//if cfg.use_instance_coeff: 
+set( for idx, pred_layer in zip(self.selected_layers, self.prediction_layers):);// 
+set( pred_x = outs[idx]);// 
+branch( if ();// > 4 
+path();//
+set( cfg.mask_type == mask_type.lincomb);// 
+set( and cfg.mask_proto_prototypes_as_features);// 
+set( ):);// 
+set( proto_downsampled = F.interpolate();// 
+set( proto_downsampled,);// 
+set( size=outs[idx].size()[2:],);// 
+set( mode="bilinear",);// 
+set( align_corners=False,);// 
+set( ));// 
+set( pred_x = torch.cat([pred_x, proto_downsampled], dim=1));// 
+bend( );//if ( 
+branch( if ();// > 4 
+path();//
+set( cfg.share_prediction_module);// 
+set( and pred_layer is not self.prediction_layers[0]);// 
+set( ):);// 
+set( pred_layer.parent = [self.prediction_layers[0]]);// 
+bend( );//if ( 
+set( p = pred_layer(pred_x));// 
+set( for k, v in p.items():);// 
+set( pred_outs[k].append(v));// 
+set( for k, v in pred_outs.items():);// 
+set( pred_outs[k] = torch.cat(v, -2));// 
+branch( if proto_out is not None:);// > 2 
+path();//
+set( pred_outs["proto"] = proto_out);// 
+bend( );//if proto_out is not None: 
+branch( if self.training:);// > 2 
+path();//
+branch( if cfg.use_class_existence_loss:);// > 3 
+path();//
+set( pred_outs["classes"] = self.class_existence_fc();// 
+set( outs[-1].mean(dim=(2, 3)));// 
+set( ));// 
+bend( );//if cfg.use_class_existence_loss: 
+branch( if cfg.use_semantic_segmentation_loss:);// > 3 
+path();//
+set( pred_outs["segm"] = self.semantic_seg_conv(outs[0]));// 
+bend( );//if cfg.use_semantic_segmentation_loss: 
+set( return pred_outs);// 
+path( else:);// 
+branch( if cfg.use_mask_scoring:);// > 3 
+path();//
+set( pred_outs["score"] = torch.sigmoid(pred_outs["score"]));// 
+bend( );//if cfg.use_mask_scoring: 
+branch( if cfg.use_focal_loss:);// > 3 
+path();//
+branch( if cfg.use_sigmoid_focal_loss:);// > 4 
+path();//
+set( pred_outs["conf"] = torch.sigmoid(pred_outs["conf"]));// 
+branch( if cfg.use_mask_scoring:);// > 5 
+path();//
+set( pred_outs["conf"] *= pred_outs["score"]);// 
+bend( );//if cfg.use_mask_scoring: 
+bend( );//if cfg.use_sigmoid_focal_loss: 
+path( elif cfg.use_objectness_score:);// 
+set( objectness = torch.sigmoid(pred_outs["conf"][:, :, 0]));// 
+set( pred_outs["conf"][:, :, 1:] = objectness[:, :, None] * F.softmax();// 
+set( pred_outs["conf"][:, :, 1:], -1);// 
+set( ));// 
+set( pred_outs["conf"][:, :, 0] = 1 - objectness);// 
+path( else:);// 
+set( pred_outs["conf"] = F.softmax(pred_outs["conf"], -1));// 
+path( else:);// 
+branch( if cfg.use_objectness_score:);// > 4 
+path();//
+set( objectness = torch.sigmoid(pred_outs["conf"][:, :, 0]));// 
+set( pred_outs["conf"][:, :, 1:] = (objectness > 0.10)[);// 
+set( ..., None);// 
+set( ] * F.softmax(pred_outs["conf"][:, :, 1:], dim=-1));// 
+path( else:);// 
+set( pred_outs["conf"] = F.softmax(pred_outs["conf"], -1));// 
+bend( );//if cfg.use_objectness_score: 
+bend( );//if cfg.use_focal_loss: 
+set( return self.detect(pred_outs, self));// 
+bend( );//if self.training: 
+bend();///
+end( );//def forward(self, x): > 1 
+bend();///
+end( );//class Yolact(nn.Module): > 0 
+set(  );//  MAIN 
+branch( if __name__ == "__main__":);// > 0 
+path();//
+set( from utils.functions import init_console);// 
+set( init_console());// 
+set( import sys);// 
+branch( if len(sys.argv) > 1:);// > 1 
+path();//
+set( from data.config import set_cfg);// 
+set( set_cfg(sys.argv[1]));// 
+bend( );//if len(sys.argv) > 1: 
+set( net = Yolact());// 
+set( net.train());// 
+set( net.init_weights(backbone_path="weights/" + "yolact_resnet50_54_800000.pth"));// 
+set( net = net.cuda());// 
+set( torch.set_default_tensor_type("torch.cuda.FloatTensor"));// 
+set( x = torch.zeros((1, 3, cfg.max_size, cfg.max_size)));// 
+set( y = net(x));// 
+set( for p in net.prediction_layers:);// 
+output( print(p.last_conv_size));// 
+output( print());// 
+set( for k, a in y.items():);// 
+output( print(k + ": ", a.size(), torch.sum(a)));// 
+set( exit());// 
+set( net(x));// 
+set( avg = MovingAverage());// 
+branch( try:);// > 1 
+path();//
+set( while True:);// 
+set( timer.reset());// 
+set( with timer.env("everything else"):);// 
+set( net(x));// 
+set( avg.add(timer.total_time()));// 
+output( print("\033[2J"));// 
+set( timer.print_stats());// 
+output( print();// 
+set( "Avg fps: %.2f\tAvg ms: %.2f ");//
+set( % (1 / avg.get_avg(), avg.get_avg() * 1000));// 
+set( ));// 
+bend( );//try: 
+path( except KeyboardInterrupt:);// 
+set( pass);// 
+bend( );//if __name__ == "__main__": 
+set(  );//   Export  Date: 04:59:50 PM - 24:Apr:20
+
+
+
+;INSECTA EMBEDDED SESSION INFORMATION
+; 255 16777215 65280 16777088 16711680 13158600 13158600 0 255 255 9895835 6946660 3289650
+;    test.py   #   .
+; notepad.exe
+;INSECTA EMBEDDED ALTSESSION INFORMATION
+; 2097 155 1688 1913 151 200   4294967008   4294959835    python.key  0
