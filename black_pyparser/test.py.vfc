@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : test.py.vfc
-;  File Date : 12:31:25 AM - 28:Apr:2023
+;  File Date : 12:46:37 AM - 28:Apr:2023
 
 set( import torch, torchvision);// 
 set( import torch.nn as nn);// 
@@ -909,4 +909,4 @@ set(  );//   Export  Date: 04:59:50 PM - 24:Apr:20
 ;    test.py   #   .
 ; notepad.exe
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 2097 155 1688 1913 151 200   4294967008   4294959835    python.key  0
+; 2097 155 1688 1913 0 170   783   4294966246    python.key  0
