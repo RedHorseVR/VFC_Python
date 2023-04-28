@@ -108,7 +108,7 @@ sub getIndents { local ( $Line ) = @_;
 		
 		}
 	return $count; }
-sub GetToken{ local( $LEVEL, $PREV_LEVEL, $CODE , $PREV_CODE ) = @_;
+sub GetToken{ local( $LEVEL, $PREV_LEVEL, $CODE , $PREV_CODE , $DIFF  ) = @_;
 $BRANCH = "(if|try)";
 $INPUT = "(def|class)";
 
@@ -119,41 +119,29 @@ $END = "^\t*(break|continue|return)";
 $OUTPUT = "^\t*(print)";
 $EVENT = "^(import|from)";
 $PATH = "^\t*(else|elif)";
-local( $DIFF )  = $LEVEL - $PREV_LEVEL ;
+$DIFF = $LEVEL - $PREV_LEVEL ;
 local( $TYPE ) = "...";
 local( $TOKEN ) = "...";
 if ($DIFF > 0  )
 {
+	$TOKEN = "push -->  $PREV_CODE LEVEL($PREV_LEVEL) "  ;
 	if ( $PREV_CODE =~m/$INPUT/ )
 	{
-		$TYPE = "end( );\/\/$PREV_LINE " ;
-		$TOKEN = "input( $PREV_CODE);\/\/  LEVEL($PREV_LEVEL)  "  ;
+		$TYPE = "end( );\/\/" ;
 	} else {
 		if ( $PREV_CODE =~ m/$BRANCH/ )
 		{
-			$TYPE = "bend(  );\/\/  $PREV_LINE " ;
-			$TOKEN = "branch( $PREV_CODE);\/\/  LEVEL($PREV_LEVEL)  "  ;
-		} else {
-			$TYPE = "set( );\/\/$PREV_LINE " ;
-			$TOKEN = "set( $PREV_CODE);\/\/  LEVEL($PREV_LEVEL)  "  ;
+			$TYPE = "bend( $PREV_LINE  );\/\/" ;
 			}
 		}
-	push( @stack, "$TYPE <<<$PREV_CODE"  );
-	
+	push( @stack, "$TYPE <--- $PREV_CODE"  );
 } else {
 	if ($DIFF <  0  )
 	{
 		$POP = pop( @stack ) ;
-		
-		$TOKEN = "$POP  <---- popped"  ;
+		$TOKEN = "pop <--  from   $POP  "  ;
 	} else {
 		$TOKEN = ""  ;
-		if ( $CODE =~ m/$PATH/ )
-		{
-			$TOKEN = "path( $CODE);\/\/  LEVEL($LEVEL)  "  ;
-		} else {
-			$TOKEN = "set( $CODE);\/\/  LEVEL($LEVEL)  "  ;
-			}
 		}
 	}
 if ( $DIFF * $DIFF  > 1 )
@@ -162,24 +150,6 @@ if ( $DIFF * $DIFF  > 1 )
 } else {
 	}
 return $TOKEN;  }
-sub print_extra_TOKENS{ local( $TOKEN ) = @_;
-$BRANCH_CLOSE = "<<<$BRANCH";
-$INPUT_CLOSE = "<(def|class)";
-
-if ( $TOKEN =~m/^input\(/ )
-{
-	print( "branch( );\/\/x\n" );
-	print( "path( );\/\/x\n" );
-	print( "path( );\/\/x\n" );
-} else {
-	if ( $TOKEN =~m/$INPUT_CLOSE/ )
-	{
-		print( "bend( );\/\/x\n" );
-	} else {
-		
-		}
-	}
-return ;}
 sub Parse{
 	open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";
 	open( FILE, $cmd_line );
@@ -191,7 +161,6 @@ sub Parse{
 	$PREV_LEVEL = 0;
 	$PREV_LINE = 0;
 	$LEVEL = 0;
-	local($DIFF) = 0;
 	while(<FILE>) {
 		$LINE = $LINE + 1 ;
 		if (     ( $_ =~m/\"\"\"/   || $_ =~m/\'\'\'/)   )
@@ -203,9 +172,9 @@ sub Parse{
 			if ( $multiLine )
 			{
 				$LEVEL = 0;
-				print( "set( );\/\/ $_" );
+				print( "$LINE #\n" );
 			} else {
-				print( "set();\/\/ $LINE\n" );
+				print( $LINE,"\n" );
 				}
 		}else{
 			
@@ -213,24 +182,25 @@ sub Parse{
 			$LEVEL = getIndents( $_  ) ;
 			$COMM = getComment( $_ ) ;
 			$CODE = getCode( $_ ) ;
-			$DIFF = $PREV_LEVEL -  $LEVEL ;
-			if ( $DIFF   > 1   )
+			if ( $multiLine==1  )
 			{
-				while( $DIFF > -1  ) {
-					$DIFF =  $DIFF -1 ;
-					$BACK_LEVEL  =  $LEVEL + $DIFF;
-					$BACK_DIFF  =  $BACK_LEVEL - $PREV_LEVEL ;
-					$TOKEN = GetToken( $BACK_LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE );
-					print_extra_TOKENS( $TOKEN );
-					print( "$TOKEN\n" );
-					
-					}
-				
 			}else{
-				print( "set($CODE);\/\/<<<<<<<<\n" );
-				$TOKEN = GetToken( $LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE );
-				print("$TOKEN \n" ) ;
-				print_extra_TOKENS( $TOKEN );
+				$DIFF = $PREV_LEVEL -  $LEVEL ;
+				if ( $DIFF   > 1   )
+				{
+					while( $DIFF > -1  ) {
+						$DIFF =  $DIFF -1 ;
+						$BACK_LEVEL  =  $LEVEL + $DIFF;
+						$BACK_DIFF  =  $BACK_LEVEL - $PREV_LEVEL ;
+						$TOKEN = GetToken( $BACK_LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE , $DIFF   );
+						print( $LINE,"<$BACK_DIFF>" ); PrintTabs( $BACK_LEVEL   ); print( $BACK_LEVEL  ,"** $TOKEN\n" );
+						$PREV_LEVEL = $BACK_LEVEL;
+						}
+					
+				}else{
+					$TOKEN = GetToken( $LEVEL, $PREV_LEVEL , $CODE , $PREV_CODE , $DIFF    );
+					print( $LINE ); print("<$DIFF>"); PrintTabs( $LEVEL ); print( " $LEVEL " );  print("$TOKEN \n" ) ;
+					}
 				}
 			}
 		$PREV_LEVEL = $LEVEL;
@@ -253,5 +223,5 @@ sub printFooter{
 	print( OUTFILE  "A EMBEDDED ALTSESSION INFORMATION\n");
 	print( OUTFILE  "; 262 123 765 1694 0 170   379   4294966903    python.key  0");
 	}
-#  Export  Date: 08:09:07 PM - 27:Apr:2023.
+#  Export  Date: 07:14:48 PM - 27:Apr:2023.
 
