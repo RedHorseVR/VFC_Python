@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : TabsPythonParser.pl.vfc
-;  File Date : 01:33:03 PM - 28:Apr:2023
+;  File Date : 01:38:34 PM - 28:Apr:2023
 
 
 input(#use);//////
@@ -112,12 +112,12 @@ input(sub peek { local( @stack ) = @_ ;);//
 process(local( $ret ) = pop( @stack ););//////
 process(push( @stack , $ret  ););//////
 branch(if ( $ret eq ""  ));//
-path( { );//
+path( {);//
 set($ret = -1;);//
-path( }else{ );//
-bend( } );//
+path( }else{);//
+bend( });//
 end(return $ret ;);//
-end(} );//
+end(});//
 set(@typestack;);//
 set(@levelstack;);//
 
@@ -131,23 +131,23 @@ set(my $OUTPUT = "^(print).*:";);//
 set();//
 process($level = peek( @levelstack ););//
 branch(if ( $level == $LEVEL   ));//
-path( { );//
+path( {);//
 output();//print( "$level == $LEVEL\t" );
 process(pop( @levelstack ) ;);//  
 output(print( pop( @typestack ) ) ;);//print( pop( @typestack ) , ">$LEVEL\n"  ) ;
-path( }else{ );//
+path( }else{);//
 output();//print( "peeked = $level LEVEL = $LEVEL\n" );
-bend( } );//
+bend( });//
 set();//
 set(local( $TYPE ) = "...";);//
 branch(if ( $CODE =~m/$INPUT/ ));//
 path( {);//
 branch(if ( $LEVEL < 1 ));//
-path( { );//
+path( {);//
 set($TYPE = "input( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;);//$TYPE = "\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > --------------------------input $LEVEL \n" ;
-path( }else{ );//
+path( }else{);//
 set($TYPE = "event( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;);///$TYPE = "\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > --------------------------input $LEVEL \n" ;//
-bend( } );//
+bend( });//
 process(push( @typestack, "bend();\/\/\nend( );\/\/$CODE\n" ););//push( @typestack, "\nbend();\nend( );\/\/$CODE > -----------------------input close $LEVEL\n" );
 event(push( @levelstack, $LEVEL ););//
 path(} elsif ( $CODE =~ m/$BRANCH/ )  {);//
@@ -164,7 +164,7 @@ path(} elsif ( $CODE =~ m/$OUTPUT/ )  {);//
 set($TYPE = "output( $CODE );\/\/" ;);//
 path(} elsif ( $CODE =~ m/$PATH/ )  {);//
 set($TYPE = "path( $CODE );\/\/" ;);//
-path(} else { );//
+path(} else {);//
 set($TYPE = "set( $CODE );\/\/" ;);//
 bend( });//
 end( return $TYPE;  });//
@@ -186,15 +186,15 @@ set($LINE = $LINE + 1 ;);//
 branch(if (  $multiLine ==0 &&   (  $_ =~s/^ *\"\"\"//   || $_ =~s/^ *\'\'\'//   )   ));//
 path( {);//
 branch(if  ( $_ =~s/\"\"\"//   || $_ =~s/\'\'\'// ));//
-path( { );//
+path( {);//
 set($_  =~ s/\n// ;);//
 set($COMM =  $_ ;);//
 set($_ = ""  ;);//
-path( }else{ );//
+path( }else{);//
 set($multiLine = 1 ;);//
 set($_ = "BEGIN MULTI LINE COMMENT\n";);//
-bend( } );//
-path(} else { );//
+bend( });//
+path(} else {);//
 set($COMM = getComment( $_ ) ;);//
 bend( });//
 branch(if ( $_ =~ m/^\n$/  ||  $multiLine ));//skip all processing of all blank lines
@@ -218,7 +218,7 @@ process($LEVEL = getIndents( $_  ) ;);//////
 set($CODE = getCode( $_ ) ;);//
 set($MISSED_LEVELS = $PREV_LEVEL - $LEVEL;);//
 branch(if ( $MISSED_LEVELS  > 1 ));//
-path( { );//
+path( {);//
 output();//print "\n----------------------- PROC MISSED LEVELS  \n";
 generic($MISSED = 1;);// ////
 loop(while( $MISSED_LEVELS >0 ) {);//
@@ -230,9 +230,9 @@ output();//print "$TYPE $COMM ---> $LEVEL ||| $MISSED_LEVELS \n";
 generic($MISSED = $MISSED + 1 ;);// ////
 lend($MISSED_LEVELS = $MISSED_LEVELS  -1; });//
 output();//print "DONE PROC MISSED LEVELS  \n";
-path( }else{ );//
+path( }else{);//
 process();//PrintTabs( $LEVEL );
-bend( } );//
+bend( });//
 set($TYPE = getType( $CODE , $LEVEL  ) ;);//
 output(print "$TYPE $COMM\n";);//print "$TYPE $COMM ---> $LEVEL \n";
 bend( });//
