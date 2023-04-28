@@ -50,7 +50,7 @@ sub PrintTabs{ local ( $num ) = @_;
 		$i=$i+1;}
 	
 	}
-sub PrintStack{
+sub PrintStack{  local( @stack ) = @_ ;
 	
 	
 	print "";
@@ -78,17 +78,6 @@ sub getComment { local ( $comment ) = @_;
 		$comment ="" ;
 		}
 	return $comment; }
-sub NumTabs{
-	local($match) = @_;
-	
-	$num = 0 ;
-	while( $match =~ m/^\t/  ) {
-		$match =~ s/\t//;
-		$num = $num + 1 ;
-		}
-	
-	return  $num  ;
-}
 sub getIndents { local ( $Line ) = @_;
 	local( $count )  = 0 ;
 	while( $Line =~ m/    / ) {
@@ -97,54 +86,12 @@ sub getIndents { local ( $Line ) = @_;
 		
 		}
 	
-	if ( $Line =~ m/Telse:/  ||   $Line =~ m/T\):/   )
+	if ( $Line =~ m/Telse:/  ||    $Line =~ m/Telif.*:/ ||    $Line =~ m/Texcept.*:/  ||  $Line =~ m/T\):/   )
 	{
 		$count = $count + 1;
 		
 		}
 	return $count; }
-sub GetToken{ local( $LEVEL, $PREV_LEVEL, $CODE , $PREV_CODE , $DIFF  ) = @_;
-$BRANCH = "(if|try)";
-$INPUT = "(def|class)";
-
-$LOOP = "^\t*(for|while|do)";
-$WITH = "^\t*(with)";
-$PEND = "^\t*(else|except)";
-$END = "^\t*(break|continue|return)";
-$OUTPUT = "^\t*(print)";
-$EVENT = "^(import|from)";
-$PATH = "^\t*(else|elif)";
-$DIFF = $LEVEL - $PREV_LEVEL ;
-local( $TYPE ) = "...";
-local( $TOKEN ) = "...";
-if ($DIFF > 0  )
-{
-	$TOKEN = "push -->  $PREV_CODE LEVEL($PREV_LEVEL) "  ;
-	if ( $PREV_CODE =~m/$INPUT/ )
-	{
-		$TYPE = "end( );\/\/" ;
-	} else {
-		if ( $PREV_CODE =~ m/$BRANCH/ )
-		{
-			$TYPE = "bend( $PREV_LINE  );\/\/" ;
-			}
-		}
-	push( @stack, "$TYPE <--- $PREV_CODE"  );
-} else {
-	if ($DIFF <  0  )
-	{
-		$POP = pop( @stack ) ;
-		$TOKEN = "pop <--  from   $POP  "  ;
-	} else {
-		$TOKEN = ""  ;
-		}
-	}
-if ( $DIFF * $DIFF  > 1 )
-{
-	$TOKEN = "$TOKEN <---! ERROR IN DIFF = $DIFF "  ;
-} else {
-	}
-return $TOKEN;  }
 sub getCode { local ( $code ) = @_;
 	$code  =~ s/\n// ;
 	$code =~ s/    //g ;
@@ -160,42 +107,55 @@ sub peek { local( @stack ) = @_ ;
 		}
 	return $ret ;
 }
+@typestack;
+@levelstack;
 sub getType{ local( $CODE , $LEVEL    ) = @_;
-my $BRANCH = "^(if|try)";
-my $INPUT = "^(def|class)";
-my $OUTPUT = "^(print)";
-my $PATH = "^(else|elif|except|final)";
-
-$level = peek( @levelstack );
-if ( $level == $LEVEL   )
-{
+	my $BRANCH = "^(if|try|with).*[:\(]";
+	my $PATH = "^(else|elif|catch|except|final).*:";
+	my $LOOP = "^(for|while|do).*:";
+	my $INPUT = "^(def|class).*[:\(]";
+	my $EVENT = "^(from|import)";
+	my $OUTPUT = "^(print).*:";
 	
-	pop( @levelstack ) ;
-	print( pop( @typestack ) ) ;
-}else{
+	$level = peek( @levelstack );
+	if ( $level == $LEVEL   )
+	{
+		
+		pop( @levelstack ) ;
+		print( pop( @typestack ) ) ;
+	}else{
+		
+		}
 	
-	}
-
-local( $TYPE ) = "...";
-if ( $CODE =~m/$INPUT/ )
-{
-	$TYPE = "\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > $LEVEL <" ;
-	push( @typestack, "bend();\nend( );\/\/$CODE > $LEVEL\n" );
-	push( @levelstack, $LEVEL );
-} elsif ( $CODE =~ m/$BRANCH/ )  {
-	$TYPE = "branch( $CODE );\/\/ > $LEVEL" ;
-	push( @typestack, "bend( );\/\/$CODE \n" );
-	push( @levelstack, $LEVEL );
-} elsif ( $CODE =~ m/$OUTPUT/ )  {
-	$TYPE = "output( $CODE );\/\/" ;
-} elsif ( $CODE =~ m/$PATH/ )  {
-	$TYPE = "path( $CODE );\/\/" ;
-} else {
-	$TYPE = "set( $CODE );\/\/" ;
-	}
-return $TYPE;  }
-my @typestack;
-my @levelstack;
+	local( $TYPE ) = "...";
+	if ( $CODE =~m/$INPUT/ )
+	{
+		if ( $LEVEL < 1 )
+		{
+			$TYPE = "input( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
+		}else{
+			$TYPE = "event( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
+			}
+		push( @typestack, "bend();\/\/\nend( );\/\/$CODE\n" );
+		push( @levelstack, $LEVEL );
+	} elsif ( $CODE =~ m/$BRANCH/ )  {
+		$TYPE = "branch( $CODE );\/\/" ;
+		push( @typestack, "bend( );\/\/$CODE\n" );
+		push( @levelstack, $LEVEL );
+	} elsif ( $CODE =~ m/$LOOP/ )  {
+		$TYPE = "loop( $CODE );\/\/" ;
+		push( @typestack, "lend( );\/\/$CODE\n" );
+		push( @levelstack, $LEVEL );
+	} elsif ( $CODE =~ m/$EVENT/ )  {
+		$TYPE = "event( $CODE );\/\/" ;
+	} elsif ( $CODE =~ m/$OUTPUT/ )  {
+		$TYPE = "output( $CODE );\/\/" ;
+	} elsif ( $CODE =~ m/$PATH/ )  {
+		$TYPE = "path( $CODE );\/\/" ;
+	} else {
+		$TYPE = "set( $CODE );\/\/" ;
+		}
+	return $TYPE;  }
 sub Parse{
 	open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";
 	open( FILE, $cmd_line );
@@ -208,12 +168,13 @@ sub Parse{
 	$PREV_LINE = 0;
 	$LEVEL = 0;
 	while(<FILE>) {
-		$InLine = $_;
+		
 		$LINE = $LINE + 1 ;
 		if (  $multiLine ==0 &&   (  $_ =~s/^ *\"\"\"//   || $_ =~s/^ *\'\'\'//   )   )
 		{
 			if  ( $_ =~s/\"\"\"//   || $_ =~s/\'\'\'// )
 			{
+				$_  =~ s/\n// ;
 				$COMM =  $_ ;
 				$_ = ""  ;
 			}else{
@@ -233,7 +194,7 @@ sub Parse{
 					$multiLine = 0 ;
 					$_ = "END MULTI LINE COMMENT\n";
 					}
-				print( "set( ):\/\/ $LINE ... $_" );
+				print( "set( );\/\/$_" );
 			} else {
 				
 				}
@@ -241,7 +202,7 @@ sub Parse{
 			
 			
 			$LEVEL = getIndents( $_  ) ;
-			$CODE = getCode( $InLine ) ;
+			$CODE = getCode( $_ ) ;
 			$MISSED_LEVELS = $PREV_LEVEL - $LEVEL;
 			if ( $MISSED_LEVELS  > 1 )
 			{
@@ -268,6 +229,13 @@ sub Parse{
 		$PREV_CODE = $CODE;
 		}
 	
+	
+	$stack = pop( @typestack );
+	while( $stack ) {
+		print "$stack";
+		$stack = pop( @typestack );
+		}
+	
 	close ( FILE );
 	close ( OUTFILE );
 	print( "\n$LINE processed lines\n" );
@@ -284,5 +252,5 @@ sub printFooter{
 	print( OUTFILE  "A EMBEDDED ALTSESSION INFORMATION\n");
 	print( OUTFILE  "; 262 123 765 1694 0 170   379   4294966903    python.key  0");
 	}
-#  Export  Date: 12:47:41 AM - 28:Apr:2023.
+#  Export  Date: 01:33:03 PM - 28:Apr:2023.
 
