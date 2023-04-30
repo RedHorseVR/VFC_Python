@@ -140,7 +140,7 @@ sub getType{ local( $CODE , $LEVEL    ) = @_;
 		push( @typestack, "bend();\nend( );\/\/$CODE > ----------------------- $LEVEL\n" );
 		push( @levelstack, $LEVEL );
 	} elsif ( $CODE =~ m/$CLASS/ ) {
-		$TYPE = "end();\/\/;\nevent( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
+		$TYPE = "end();\/\/;\ninput( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
 		push( @typestack, "bend();\/\/\nend( );\/\/$CODE\n" );
 		push( @levelstack, $LEVEL );
 	} elsif ( $CODE =~ m/$BRANCH/ )  {
@@ -271,5 +271,5 @@ sub printFooter{
 	print( OUTFILE  "A EMBEDDED ALTSESSION INFORMATION\n");
 	print( OUTFILE  "; 262 123 765 1694 0 170   379   4294966903    python.key  0");
 	}
-#  Export  Date: 04:33:35 PM - 30:Apr:2023.
+#  Export  Date: 04:39:35 PM - 30:Apr:2023.
 

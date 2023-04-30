@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : TabsPythonParser.pl.vfc
-;  File Date : 04:33:35 PM - 30:Apr:2023
+;  File Date : 04:39:35 PM - 30:Apr:2023
 
 
 input(#use);//////
@@ -152,7 +152,7 @@ bend( });//
 process(push( @typestack, "bend();\nend( );\/\/$CODE > ----------------------- $LEVEL\n" ););//push( @typestack, "bend();\/\/\nend( );\/\/$CODE\n" );
 event(push( @levelstack, $LEVEL ););//
 path(} elsif ( $CODE =~ m/$CLASS/ ) {);//
-set($TYPE = "end();\/\/;\nevent( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;);///$TYPE = "\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > --------------------------input $LEVEL \n" ;//
+set($TYPE = "end();\/\/;\ninput( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;);//$TYPE = "end();\/\/;\nevent( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
 process(push( @typestack, "bend();\/\/\nend( );\/\/$CODE\n" ););//push( @typestack, "\nbend();\nend( );\/\/$CODE > -----------------------input close $LEVEL\n" );
 event(push( @levelstack, $LEVEL ););//
 path(} elsif ( $CODE =~ m/$BRANCH/ )  {);//
@@ -289,4 +289,4 @@ end( });//
 ;    TabsPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 1976 484 1700 1276 138 165   4294966478   4294960121    perl.key  0
+; 1976 484 1700 1276 173 165   4294966502   4294960165    perl.key  0
