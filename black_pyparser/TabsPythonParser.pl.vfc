@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : TabsPythonParser.pl.vfc
-;  File Date : 01:38:34 PM - 28:Apr:2023
+;  File Date : 04:33:35 PM - 30:Apr:2023
 
 
 input(#use);//////
@@ -27,9 +27,9 @@ process($cmd_line = $ENV{'QUERY_STRING'} ;);//GetParams();
 output();//print( "ARG = $cmd_line  \n" );
 process(  ($cmd_line) = @ARGV;);//$cmd_line = $ENV{'QUERY_STRING'} ;
 output();//print( "ARG = $cmd_line  \n" );
-process($outputVFC =  "$cmd_line.vfc" ;);//$cmd_line = $ENV{'QUERY_STRING'} ;
+process();//$outputVFC =  "$cmd_line.vfc" ;
 set($file = $cmd_line ;);//
-output(print( STDOUT  "parse file =  $cmd_line  ...  \n" ););//
+output(print( STDOUT  ";;;parse file =  $cmd_line  ...  \n" ););//
 generic($lasttime = 0;);//$lasttime = stat($file)->mtime;
 set($I = 2;);//$I = 0;
 process(Parse(););//
@@ -95,7 +95,7 @@ set($count = $count + 1 ;);//
 set($Line =~ s/    /T/ ;);//
 output();//print( "-$Line" );
 lend(});//
-branch(if ( $Line =~ m/Telse:/  ||    $Line =~ m/Telif.*:/ ||    $Line =~ m/Texcept.*:/  ||  $Line =~ m/T\):/   ));//... black tab fix to keepo alignment of tabs at correct levels
+branch(if ( $Line =~ m/T*else:/  ||    $Line =~ m/T*elif.*:/ ||    $Line =~ m/T*except.*:/  ||    $Line =~ m/T*finally.*:/  ||  $Line =~ m/^T*\):/  ));//... black tab fix to keepo alignment of tabs at correct levels
 path( {);//
 set($count = $count + 1;);//
 output();//print "<pre>";
@@ -125,7 +125,8 @@ input(sub getType{ local( $CODE , $LEVEL    ) = @_;);//
 set(my $BRANCH = "^(if|try|with).*[:\(]";);//
 set(my $PATH = "^(else|elif|catch|except|final).*:";);//
 set(my $LOOP = "^(for|while|do).*:";);//
-set(my $INPUT = "^(def|class).*[:\(]";);//
+set(my $INPUT = "^(def.+[:\(])";);//
+set(my $CLASS = "^(class)( |\t)";);//
 set(my $EVENT = "^(from|import)";);//
 set(my $OUTPUT = "^(print).*:";);//
 set();//
@@ -144,10 +145,14 @@ branch(if ( $CODE =~m/$INPUT/ ));//
 path( {);//
 branch(if ( $LEVEL < 1 ));//
 path( {);//
-set($TYPE = "input( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;);//$TYPE = "\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > --------------------------input $LEVEL \n" ;
+set($TYPE = "end();\/\/\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > --------------------------input $LEVEL \n" ;);//$TYPE = "end();\/\/\ninput( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
 path( }else{);//
-set($TYPE = "event( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;);///$TYPE = "\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > --------------------------input $LEVEL \n" ;//
+set($TYPE = "end();\/\/\nevent( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;);//$TYPE = "end();\/\/\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > --------------------------input $LEVEL \n" ;//
 bend( });//
+process(push( @typestack, "bend();\nend( );\/\/$CODE > ----------------------- $LEVEL\n" ););//push( @typestack, "bend();\/\/\nend( );\/\/$CODE\n" );
+event(push( @levelstack, $LEVEL ););//
+path(} elsif ( $CODE =~ m/$CLASS/ ) {);//
+set($TYPE = "end();\/\/;\nevent( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;);///$TYPE = "\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > --------------------------input $LEVEL \n" ;//
 process(push( @typestack, "bend();\/\/\nend( );\/\/$CODE\n" ););//push( @typestack, "\nbend();\nend( );\/\/$CODE > -----------------------input close $LEVEL\n" );
 event(push( @levelstack, $LEVEL ););//
 path(} elsif ( $CODE =~ m/$BRANCH/ )  {);//
@@ -170,9 +175,9 @@ bend( });//
 end( return $TYPE;  });//
 
 input(sub Parse{);//
-output(open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";);//
+output();//open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";
 set(  open( FILE, $cmd_line ););//
-output(print( "...parseing $cmd_line\n" ););//
+output(print( ";;;...parseing $cmd_line\n" ););//
 generic($lastCount = 0;);// ////
 set(  $ParsedFile  = "";);//
 set($multiLine = 0;);//
@@ -182,14 +187,23 @@ generic($PREV_LINE = 0;);//
 generic($LEVEL = 0;);//  
 loop(  while(<FILE>) {);//
 set();//$InLine = $_;
+set($fixLEVEL  = 0 ;);//
 set($LINE = $LINE + 1 ;);//
 branch(if (  $multiLine ==0 &&   (  $_ =~s/^ *\"\"\"//   || $_ =~s/^ *\'\'\'//   )   ));//
 path( {);//
-branch(if  ( $_ =~s/\"\"\"//   || $_ =~s/\'\'\'// ));//
+branch(if  ( $_ =~s/\"\"\"$/***/   || $_ =~s/\'\'\'$/***/ ));//
 path( {);//
 set($_  =~ s/\n// ;);//
-set($COMM =  $_ ;);//
-set($_ = ""  ;);//
+set($COMM =  "$_$PREV_LEVEL" ;);//$COMM =  $_ ;
+set($_ = ""  ;);//fix  abuse of multiline comments
+generic($PREV = $PREV_LEVEL ;);// ////
+loop(while( $PREV >=0 ) {);//
+process($PREV = $PREV - 1;);// 
+set($_ = "$_\t"  ;);//fix  abuse of multiline comments
+process($LEVEL = $LEVEL+1;);// 
+output();//print( "set(********************************************************);\/\/$LEVEL\n" );
+lend(});//
+set($fixLEVEL  = 1 ;);//
 path( }else{);//
 set($multiLine = 1 ;);//
 set($_ = "BEGIN MULTI LINE COMMENT\n";);//
@@ -214,7 +228,11 @@ bend( });//
 path( }else{);//
 output();//print( $CODE,"\n" );
 set();//
-process($LEVEL = getIndents( $_  ) ;);//////
+branch(if ( $fixLEVEL   ));//
+path( { );//
+path( }else{ );//
+process($LEVEL = getIndents( $_ ) ;);//
+bend( } );//
 set($CODE = getCode( $_ ) ;);//
 set($MISSED_LEVELS = $PREV_LEVEL - $LEVEL;);//
 branch(if ( $MISSED_LEVELS  > 1 ));//
@@ -271,4 +289,4 @@ end( });//
 ;    TabsPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 485 239 2182 1276 173 165   839   4294962515    perl.key  0
+; 1976 484 1700 1276 138 165   4294966478   4294960121    perl.key  0

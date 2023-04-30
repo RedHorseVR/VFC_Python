@@ -19,9 +19,9 @@ sub LoadFileAsString {
 	
 	($cmd_line) = @ARGV;
 	
-	$outputVFC =  "$cmd_line.vfc" ;
+	
 	$file = $cmd_line ;
-	print( STDOUT  "parse file =  $cmd_line  ...  \n" );
+	print( STDOUT  ";;;parse file =  $cmd_line  ...  \n" );
 	$lasttime = 0;
 	$I = 2;
 	Parse();
@@ -86,7 +86,7 @@ sub getIndents { local ( $Line ) = @_;
 		
 		}
 	
-	if ( $Line =~ m/Telse:/  ||    $Line =~ m/Telif.*:/ ||    $Line =~ m/Texcept.*:/  ||  $Line =~ m/T\):/   )
+	if ( $Line =~ m/T*else:/  ||    $Line =~ m/T*elif.*:/ ||    $Line =~ m/T*except.*:/  ||    $Line =~ m/T*finally.*:/  ||  $Line =~ m/^T*\):/  )
 	{
 		$count = $count + 1;
 		
@@ -113,7 +113,8 @@ sub getType{ local( $CODE , $LEVEL    ) = @_;
 	my $BRANCH = "^(if|try|with).*[:\(]";
 	my $PATH = "^(else|elif|catch|except|final).*:";
 	my $LOOP = "^(for|while|do).*:";
-	my $INPUT = "^(def|class).*[:\(]";
+	my $INPUT = "^(def.+[:\(])";
+	my $CLASS = "^(class)( |\t)";
 	my $EVENT = "^(from|import)";
 	my $OUTPUT = "^(print).*:";
 	
@@ -132,10 +133,14 @@ sub getType{ local( $CODE , $LEVEL    ) = @_;
 	{
 		if ( $LEVEL < 1 )
 		{
-			$TYPE = "input( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
+			$TYPE = "end();\/\/\ninput( $CODE  );\nbranch();\npath();\npath();\/\/ > --------------------------input $LEVEL \n" ;
 		}else{
-			$TYPE = "event( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
+			$TYPE = "end();\/\/\nevent( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
 			}
+		push( @typestack, "bend();\nend( );\/\/$CODE > ----------------------- $LEVEL\n" );
+		push( @levelstack, $LEVEL );
+	} elsif ( $CODE =~ m/$CLASS/ ) {
+		$TYPE = "end();\/\/;\nevent( $CODE  );\/\/\nbranch();\/\/\npath();\/\/\npath();\/\/ " ;
 		push( @typestack, "bend();\/\/\nend( );\/\/$CODE\n" );
 		push( @levelstack, $LEVEL );
 	} elsif ( $CODE =~ m/$BRANCH/ )  {
@@ -157,9 +162,9 @@ sub getType{ local( $CODE , $LEVEL    ) = @_;
 		}
 	return $TYPE;  }
 sub Parse{
-	open OUTFILE,  ">" ,   $outputVFC  or die "Cannot open output: $!";
+	
 	open( FILE, $cmd_line );
-	print( "...parseing $cmd_line\n" );
+	print( ";;;...parseing $cmd_line\n" );
 	$lastCount = 0;
 	$ParsedFile  = "";
 	$multiLine = 0;
@@ -169,14 +174,24 @@ sub Parse{
 	$LEVEL = 0;
 	while(<FILE>) {
 		
+		$fixLEVEL  = 0 ;
 		$LINE = $LINE + 1 ;
 		if (  $multiLine ==0 &&   (  $_ =~s/^ *\"\"\"//   || $_ =~s/^ *\'\'\'//   )   )
 		{
-			if  ( $_ =~s/\"\"\"//   || $_ =~s/\'\'\'// )
+			if  ( $_ =~s/\"\"\"$/***/   || $_ =~s/\'\'\'$/***/ )
 			{
 				$_  =~ s/\n// ;
-				$COMM =  $_ ;
+				$COMM =  "$_$PREV_LEVEL" ;
 				$_ = ""  ;
+				$PREV = $PREV_LEVEL ;
+				while( $PREV >=0 ) {
+					$PREV = $PREV - 1;
+					$_ = "$_\t"  ;
+					$LEVEL = $LEVEL+1;
+					
+					}
+				
+				$fixLEVEL  = 1 ;
 			}else{
 				$multiLine = 1 ;
 				$_ = "BEGIN MULTI LINE COMMENT\n";
@@ -201,7 +216,11 @@ sub Parse{
 		}else{
 			
 			
-			$LEVEL = getIndents( $_  ) ;
+			if ( $fixLEVEL   )
+			{
+			}else{
+				$LEVEL = getIndents( $_ ) ;
+				}
 			$CODE = getCode( $_ ) ;
 			$MISSED_LEVELS = $PREV_LEVEL - $LEVEL;
 			if ( $MISSED_LEVELS  > 1 )
@@ -252,5 +271,5 @@ sub printFooter{
 	print( OUTFILE  "A EMBEDDED ALTSESSION INFORMATION\n");
 	print( OUTFILE  "; 262 123 765 1694 0 170   379   4294966903    python.key  0");
 	}
-#  Export  Date: 01:38:34 PM - 28:Apr:2023.
+#  Export  Date: 04:33:35 PM - 30:Apr:2023.
 
