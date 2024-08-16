@@ -2,7 +2,7 @@
 ;  c1995-2015: Visual Flow Coder by 2LResearch
 ;
 ;  File Name : TabsPythonParser.pl.vfc
-;  File Date : 12:47:16 AM - 01:May:2023
+;  File Date : 01:40:58 PM - 16:Aug:2024
 
 
 input(#use);//////
@@ -229,10 +229,10 @@ path( }else{);//
 output();//print( $CODE,"\n" );
 set();//
 branch(if ( $fixLEVEL   ));//
-path( { );//
-path( }else{ );//
+path( {);//
+path( }else{);//
 process($LEVEL = getIndents( $_ ) ;);//
-bend( } );//
+bend( });//
 set($CODE = getCode( $_ ) ;);//
 set($MISSED_LEVELS = $PREV_LEVEL - $LEVEL;);//
 branch(if ( $MISSED_LEVELS  > 1 ));//
@@ -266,20 +266,21 @@ set($stack = pop( @typestack ););//
 lend(});//
 generic(  close ( FILE ););//
 generic(  close ( OUTFILE ););//
-output(print( "\n$LINE processed lines\n" ););//
+process(printFooter() ;);//
+output();//print( "\n$LINE processed lines\n" );
 end( });// 
 
 input(sub printFooter{);//
 set($rootfile = $file;);//
 set($rootfile =~ s/^.*\\//;);//
-generic(print( OUTFILE  ";INSECT" ););// ////
-generic(print( OUTFILE  "A EMBEDDED SESSION INFORMATION\n" ););// ////
-generic(print( OUTFILE  "; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688 \n"););//
-generic(print( OUTFILE  "$rootfile.py   #\"\"\"  #\"\"\"  \n"););//
-generic(print( OUTFILE  "; notepad++.exe \n"););//
-generic(print( OUTFILE  ";INSECT" ););// ////
-generic(print( OUTFILE  "A EMBEDDED ALTSESSION INFORMATION\n"););//
-generic(print( OUTFILE  "; 262 123 765 1694 0 170   379   4294966903    python.key  0"););//
+generic(print( ";INSECT" ););// ////print( OUTFILE  ";INSECT" );
+generic(print( "A EMBEDDED SESSION INFORMATION\n" ););// ////
+generic(print( "; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688 \n"););//
+generic(print( "$rootfile   #\"\"\"  #\"\"\"  \n"););//
+generic(print( "; notepad++.exe \n"););//
+generic(print( ";INSECT" ););// ////
+generic(print( "A EMBEDDED ALTSESSION INFORMATION\n"););//
+generic(print( "; 262 123 765 1694 0 170   379   4294966903    python.key  0"););//
 end( });//
 
 
@@ -289,4 +290,4 @@ end( });//
 ;    TabsPythonParser.pl   #   .
 ; notepad++
 ;INSECTA EMBEDDED ALTSESSION INFORMATION
-; 4031 215 1380 1103 173 225   626   4294958557    perl.key  0
+; 0 0 1618 1396 260 154   792   4294956564    perl.key  0

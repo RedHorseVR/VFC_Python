@@ -257,19 +257,20 @@ sub Parse{
 	
 	close ( FILE );
 	close ( OUTFILE );
-	print( "\n$LINE processed lines\n" );
+	printFooter() ;
+	
 	}
 sub printFooter{
 	$rootfile = $file;
 	$rootfile =~ s/^.*\\//;
-	print( OUTFILE  ";INSECT" );
-	print( OUTFILE  "A EMBEDDED SESSION INFORMATION\n" );
-	print( OUTFILE  "; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688 \n");
-	print( OUTFILE  "$rootfile.py   #\"\"\"  #\"\"\"  \n");
-	print( OUTFILE  "; notepad++.exe \n");
-	print( OUTFILE  ";INSECT" );
-	print( OUTFILE  "A EMBEDDED ALTSESSION INFORMATION\n");
-	print( OUTFILE  "; 262 123 765 1694 0 170   379   4294966903    python.key  0");
+	print( ";INSECT" );
+	print( "A EMBEDDED SESSION INFORMATION\n" );
+	print( "; 255 16777215 65280 16777088 16711680 255 8388608 0 255 255 65535 65280 4210688 \n");
+	print( "$rootfile   #\"\"\"  #\"\"\"  \n");
+	print( "; notepad++.exe \n");
+	print( ";INSECT" );
+	print( "A EMBEDDED ALTSESSION INFORMATION\n");
+	print( "; 262 123 765 1694 0 170   379   4294966903    python.key  0");
 	}
-#  Export  Date: 04:39:35 PM - 30:Apr:2023.
+#  Export  Date: 01:40:58 PM - 16:Aug:2024.
 
